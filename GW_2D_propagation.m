@@ -57,12 +57,18 @@ tdiffus = kinvisc./Pr;
 IsViscosity = 1;% flag to solve for molecular viscosity
 IsConduction = 1; % flag to solve for thermal conduction   
 
-% ---- Background wind (modelled as horizontal wind with vertical Gaussian profile)
+% ---- Background wind (modelled as horizontal wind with vertical Gaussian or Linear profile)
 global wind
-u_max = 0;    % wind amplitude (m/s) 
-u_zloc = 100000;    % z location of wind peak (m)
-u_sig = 10000;    % stdev of wind profile (m)
-wind= u_max.*exp(-(Z-u_zloc).^2./(2*u_sig^2));    % also a matrix of size X=Z
+
+% Gaussian wind shear
+ u_max = 100;    % wind amplitude (m/s) 
+% u_zloc = 100000;    % z location of wind peak (m)
+% u_sig = 10000;    % stdev of wind profile (m)
+% wind= u_max.*exp(-(Z-u_zloc).^2./(2*u_sig^2));    % also a matrix of size X=Z
+
+% linear wind shear
+wind = linspace(0,u_max,length(z_c));
+wind = repmat(wind',1,length(x_c));
 
 % ---- Wave forcing
 global forcing
