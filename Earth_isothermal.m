@@ -1,22 +1,24 @@
 function[T,rho,p,R,gamma,kvisc,H,C] = Earth_isothermal(z_array)
 
-z_array = z_array';  % so that everything turns out as column vecotrs
+% Earth isothermal model to provide atmospheric state
+% input: z_array -> Z x X array 
+% all outputs have the same dimension as z_array
 
-T0 = 239;
-p0 = 82311.6;
-rho0 = 1.2;
-H=p0/(rho0*9.8);
-gamma = 1.4;
+T_surface = 239;
+p_surface = 1E5;
+rho_surface = 1.2;
+gamma = 1.4;    %constant gamma
 R = 287;
-C = sqrt(gamma*R*T0);
-N = sqrt(gamma-1)*9.8/C;
 
-p = p0*exp(-z_array./H);
-rho = rho0*exp(-z_array./H);
-T = T0.*ones(length(z_array),1);
-R = R.*ones(length(z_array),1);
-C = C.*ones(length(z_array),1);
-H = H.*ones(length(z_array),1);
-gamma = gamma.*ones(length(z_array),1);
+H = p_surface/(rho_surface*9.8); % scaled height
 
-kvisc = (3.5e-7)*(T0^0.69)./rho; % Banks & Kockarts, 1973
+p = p_surface*exp(-z_array./H);
+rho = rho_surface*exp(-z_array./H);
+T = T_surface.*ones(size(z_array));
+R = R.*ones(size(z_array));
+C = sqrt(gamma*R.*T);
+C = C.*ones(size(z_array));
+H = H.*ones(size(z_array));
+gamma = gamma.*ones(size(z_array));
+%N = sqrt(gamma-1)*9.8/C;
+kvisc = (3.5e-7)*(T.^0.69)./rho; % Banks & Kockarts, 1973
