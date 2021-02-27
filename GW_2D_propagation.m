@@ -34,47 +34,45 @@ T_arr(nframe)=0; % T_arr is the time array of stored frames
 % ---- Background atmosphere
 
 global g R P0 rho0 gamma C; 
-g = 9.8;
-R = 287;
-P0 = 1E5;
-rho0 = 1.2;
-gamma = 1.4;
-C = sqrt(gamma*P0/rho0);  % speed of sound
-H = P0/(rho0*g);    % scale height
 
 % Atmospheric Pressure and Density profiles
-P0 = P0.*exp(-Z./H); % simple exponential model
-rho0 = rho0.*exp(-Z./H);
+% P0 = P0.*exp(-Z./H); % simple exponential model
+% rho0 = rho0.*exp(-Z./H);
+
+% Using Earth isothermal model
+[~,rho0,P0,R,gamma,kinvisc,H,C] = Earth_isothermal(Z);
+
+% model gravity to maintain hydrostatic equilibrium initially (g dimension is Z-1 x X-1)
 g = (P0(2:end,1)-P0(1:end-1,1))./(-0.5*dz*(rho0(2:end,1)+rho0(1:end-1,1)));
 g = repmat(g,1,size(X,2)-1);
 
 % Viscosity and Thermal Diffusivity Profiles
-dynvisc = 1.3e-5; % sample molecular viscosity
-Pr = 0.7; % Prandtl number
-kinvisc = dynvisc./rho0;
-tdiffus = kinvisc./Pr;
+% dynvisc = 1.3e-5; % sample molecular viscosity
+% Pr = 0.7; % Prandtl number
+% kinvisc = dynvisc./rho0;
+% tdiffus = kinvisc./Pr;
 
-IsViscosity = 1;% flag to solve for molecular viscosity
-IsConduction = 1; % flag to solve for thermal conduction   
+IsViscosity = 0;% flag to solve for molecular viscosity
+IsConduction = 0; % flag to solve for thermal conduction   
 
 % ---- Background wind (modelled as horizontal wind with vertical Gaussian or Linear profile)
 global wind
 
 % Gaussian wind shear
  u_max = 100;    % wind amplitude (m/s) 
-% u_zloc = 100000;    % z location of wind peak (m)
-% u_sig = 10000;    % stdev of wind profile (m)
-% wind= u_max.*exp(-(Z-u_zloc).^2./(2*u_sig^2));    % also a matrix of size X=Z
+u_zloc = 100000;    % z location of wind peak (m)
+u_sig = 10000;    % stdev of wind profile (m)
+wind= u_max.*exp(-(Z-u_zloc).^2./(2*u_sig^2));    % also a matrix of size X=Z
 
 % linear wind shear
-wind = linspace(0,u_max,length(z_c));
-wind = repmat(wind',1,length(x_c));
+% wind = linspace(0,u_max,length(z_c));
+% wind = repmat(wind',1,length(x_c));
 
 % ---- Wave forcing
 global forcing
 % A lower boundary Source is simulated as Gaussian w perturbation
 forcing.no = false;     %if true, no forcing is applied
-forcing.amp = 0.2;      % amplitude (m/s)
+forcing.amp = 0.002;      % amplitude (m/s)
 forcing.omega = 0.012;  % centered frequency
 kx = 2*pi / (Xmax-Xmin);    % One horizontal wavelength per domain is set (lambda_x = x domain length)
 forcing.kxx = x_c.*kx;  % computing kx*x
@@ -84,7 +82,7 @@ forcing.sigmat=600;     % forcing half width time (s)
 % ---- timestep and CFL ----
 dCFL = 0.8; % desired Courant-Friedrichs-Lewy number
 difCFL = 0.2; % CFL for diffusion problem
-dt = dCFL.*min(dx,dz)./(C);   %limited by speed of sound
+dt = dCFL.*min(dx,dz)./max(C,[],'all');   %limited by speed of sound
 
 %------End of Inputs--------------------------- 
 
@@ -105,7 +103,7 @@ P_pert=0.*X;    % zero pressure perturbation
 Q(:,:,1) = rho0;    %rho
 Q(:,:,2) = rho0.*wind;    % rho*u
 Q(:,:,3) = 0;             % rho*w (forcing is added in BCs)
-Q(:,:,4) =(P_pert+P0.*X.^0)/(gamma-1)+0.5*rho0.*wind.^2; % E for ideal gas
+Q(:,:,4) =(P_pert+P0.*X.^0)./(gamma-1)+0.5*rho0.*wind.^2; % E for ideal gas
 
 % Set BCs for first time
 Q = bc(Q,0);
@@ -157,7 +155,7 @@ while t < Tmax
     n=n+1;
     
     % Update advective (main loop) timestep (adaptive)
-    dt = dCFL.*min(dx,dz)./(C+max(abs(Q(:,:,2:3)./Q(:,:,1)),[],'all')); % Not Fool-Proof (!)
+    dt = dCFL.*min(dx,dz)./(max(C,[],'all')+max(abs(Q(:,:,2:3)./Q(:,:,1)),[],'all')); % Not Fool-Proof (!)
     if ((isnan(dt)) || (dt==0))
         break;
     end
@@ -179,8 +177,8 @@ end
 
 % These values are 3D arrays (z-x-t)
 KE = squeeze(0.5*(Q_save(3:end-2,3:end-2,2,:).^2+Q_save(3:end-2,3:end-2,3,:).^2)./Q_save(3:end-2,3:end-2,1,:));
-P_PERT = (squeeze(Q_save(3:end-2,3:end-2,4,:))-KE).*(gamma-1)-P0(3:end-2,3:end-2);
-T_PERT = P_PERT./(R.*squeeze(Q_save(3:end-2,3:end-2,1,:)));
+P_PERT = (squeeze(Q_save(3:end-2,3:end-2,4,:))-KE).*(gamma(3:end-2,3:end-2)-1)-P0(3:end-2,3:end-2);
+T_PERT = P_PERT./(R(3:end-2,3:end-2).*squeeze(Q_save(3:end-2,3:end-2,1,:)));
 U = squeeze(Q_save(3:end-2,3:end-2,2,:)./Q_save(3:end-2,3:end-2,1,:));
 W = squeeze(Q_save(3:end-2,3:end-2,3,:)./Q_save(3:end-2,3:end-2,1,:));
 
@@ -249,14 +247,14 @@ function Q = bc(Q,t)
         Q(1:2,:,3) = w.*rho0(1:2,:);
     end
     % bottom for E
-    Q(1:2,:,4) = P0(1:2,:)./(gamma-1)+(Q(3,:,4)-P0(3,:)./(gamma-1)-0.5*rho0(3,:).*wind(3,:).^2).*(rho0(1:2,:)./rho0(3,:)).^(0.5)+0.5*rho0(1:2,:).*wind(1:2,:).^2;
+    Q(1:2,:,4) = P0(1:2,:)./(gamma(1:2,:)-1)+(Q(3,:,4)-P0(3,:)./(gamma(3,:)-1)-0.5*rho0(3,:).*wind(3,:).^2).*(rho0(1:2,:)./rho0(3,:)).^(0.5)+0.5*rho0(1:2,:).*wind(1:2,:).^2;
     
     % ---- Top ----
     % open top (outflow) for all 4 quantities
     Q(end-1:end,:,1) = rho0(end-1:end,:)+(Q(end-2,:,1)-rho0(end-2,:)).*(rho0(end-1:end,:)./rho0(end-2,:)).^(0.5);
     Q(end-1:end,:,2) = rho0(end-1:end,:).*wind(end-1:end,:)+(Q(end-2,:,2)-rho0(end-2,:).*wind(end-2,:)).*(rho0(end-1:end,:)./rho0(end-2,:)).^(0.5);
     Q(end-1:end,:,3) = Q(end-2,:,3).*(rho0(end-1:end,:)./rho0(end-2,:)).^(0.5);
-    Q(end-1:end,:,4) = P0(end-1:end,:)./(gamma-1)+(Q(end-2,:,4)-P0(end-2,:)./(gamma-1)-0.5*rho0(end-2,:).*wind(end-2,:).^2).*(rho0(end-1:end,:)./rho0(end-2,:)).^(0.5)+0.5*rho0(end-1:end,:).*wind(end-1:end,:).^2;
+    Q(end-1:end,:,4) = P0(end-1:end,:)./(gamma(end-1:end,:)-1)+(Q(end-2,:,4)-P0(end-2,:)./(gamma(end-2,:)-1)-0.5*rho0(end-2,:).*wind(end-2,:).^2).*(rho0(end-1:end,:)./rho0(end-2,:)).^(0.5)+0.5*rho0(end-1:end,:).*wind(end-1:end,:).^2;
     
     % ---- Sides ----
     % periodic for both sides (+x and -x)
@@ -270,9 +268,14 @@ end
 
 %% ---- Flux terms ----
 function F = Fflux(Q)
-    global g R P0 rho0 gamma C;    
+    global g R P0 rho0 gamma C;  
+    
+    % ensuring that gamma is of same size as Q (when half step Qs is being passed)
+    [a,b,~] = size(Q);
+    gamm = gamma(1:a,1:b); % gamm is just gamma of the correct size
+    
     % compute pressure from ideal gas equation
-    P = (gamma-1)*(Q(:,:,4)-(0.5*(Q(:,:,2).^2+Q(:,:,3).^2)./Q(:,:,1)));
+    P = (gamm-1).*(Q(:,:,4)-(0.5*(Q(:,:,2).^2+Q(:,:,3).^2)./Q(:,:,1)));
     
     F(:,:,1) = Q(:,:,2);
     F(:,:,2) = Q(:,:,2).*Q(:,:,2)./Q(:,:,1) + P;
@@ -282,7 +285,12 @@ end
 
 function G = Gflux(Q)
     global g R P0 rho0 gamma C; 
-    P = (gamma-1)*(Q(:,:,4)-(0.5*(Q(:,:,2).^2+Q(:,:,3).^2)./Q(:,:,1)));
+    
+    % ensuring that gamma is of same size as Q (when half step Qs is being passed)
+    [a,b,~] = size(Q);
+    gamm = gamma(1:a,1:b); % gamm is just gamma of the correct size
+    
+    P = (gamm-1).*(Q(:,:,4)-(0.5*(Q(:,:,2).^2+Q(:,:,3).^2)./Q(:,:,1)));
     
     G(:,:,1) = Q(:,:,3);
     G(:,:,2) = Q(:,:,2).*Q(:,:,3)./Q(:,:,1);
