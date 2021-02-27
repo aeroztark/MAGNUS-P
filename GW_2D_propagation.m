@@ -35,12 +35,10 @@ T_arr(nframe)=0; % T_arr is the time array of stored frames
 
 global g R P0 rho0 gamma C; 
 
-% Atmospheric Pressure and Density profiles
-% P0 = P0.*exp(-Z./H); % simple exponential model
-% rho0 = rho0.*exp(-Z./H);
-
 % Using Earth isothermal model
-[~,rho0,P0,R,gamma,kinvisc,H,C] = Earth_isothermal(Z);
+ [~,rho0,P0,R,gamma,kinvisc,H,C] = Earth_isothermal(Z);
+% Using Earth MSIS model
+%[~,rho0,P0,R,gamma,kinvisc,H,C,] = Earth_MSIS(Z,10,180,2020,1,0);
 
 % model gravity to maintain hydrostatic equilibrium initially (g dimension is Z-1 x X-1)
 g = (P0(2:end,1)-P0(1:end-1,1))./(-0.5*dz*(rho0(2:end,1)+rho0(1:end-1,1)));
