@@ -4,7 +4,7 @@ function[T,rho,p,R,gamma,kvisc,H,C,omega_BV,omega_AC] = Earth_MSIS(z_array,lat,l
 % input: provide z in meters and other params for MSISE (lat-lon & time)
 
 warning('off')
-[T,den] = atmosnrlmsise00(z_array,lat,lon,year,DOY,UTsec);
+[T,den] = atmosnrlmsise00(z_array(:,1),lat,lon,year,DOY,UTsec);
 
 T = T(:,2); %ignore first row -> exospheric temperature
 rho = den(:,6);  % 6th column is total mass density in kg/m3
@@ -34,3 +34,16 @@ C = sqrt(gamma.*R.*T);  % speed of sound
 omega_BV = sqrt(gamma-1).*9.8./C; % Brunt-Vaisala frequency
 
 omega_AC = gamma.*9.8./(2.*C); % Acoustic cutoff frequency
+
+% stretching column vectors to the same size as Z
+[~,B] = size(z_array);
+T = repmat(T,1,B); 
+rho = repmat(rho,1,B);
+p = repmat(p,1,B); 
+R = repmat(R,1,B);
+gamma = repmat(gamma,1,B); 
+kvisc = repmat(kvisc,1,B); 
+H = repmat(H,1,B); 
+C = repmat(C,1,B); 
+omega_BV = repmat(omega_BV,1,B); 
+omega_AC = repmat(omega_AC,1,B); 
