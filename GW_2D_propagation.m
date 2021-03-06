@@ -23,8 +23,8 @@ z_c = Zmin-3*dz/2:dz:Zmax+3*dz/2;
 
 % ---- Time parameters ----
 Tmin  = 0;    % Initial time
-Tmax  = 3000; % Final time in seconds
-skipT = 30;  % Number of seconds to skip storing results
+Tmax  = 8000; % Final time in seconds
+skipT = 10;  % Number of seconds to skip storing results
 % computation happens after every dt but only limited data is stored
 n = 0;       % First Step n = 0 (n counts the current stored frame)
 t = Tmin;    % First time t = Tmin
@@ -36,7 +36,7 @@ T_arr(nframe)=0; % T_arr is the time array of stored frames
 global g R P0 rho0 gamma C; 
 
 % Using Earth isothermal model
- [~,rho0,P0,R,gamma,kinvisc,H,C] = Earth_isothermal(Z);
+ [T0,rho0,P0,R,gamma,kinvisc,H,C] = Earth_isothermal(Z);
 % Using Earth MSIS model
 %[~,rho0,P0,R,gamma,kinvisc,H,C,] = Earth_MSIS(Z,10,180,2020,1,0);
 
@@ -57,7 +57,7 @@ IsConduction = 0; % flag to solve for thermal conduction
 global wind
 
 % Gaussian wind shear
- u_max = 100;    % wind amplitude (m/s) 
+ u_max = 0;    % wind amplitude (m/s) 
 u_zloc = 100000;    % z location of wind peak (m)
 u_sig = 10000;    % stdev of wind profile (m)
 wind= u_max.*exp(-(Z-u_zloc).^2./(2*u_sig^2));    % also a matrix of size X=Z
@@ -70,8 +70,8 @@ wind= u_max.*exp(-(Z-u_zloc).^2./(2*u_sig^2));    % also a matrix of size X=Z
 global forcing
 % A lower boundary Source is simulated as Gaussian w perturbation
 forcing.no = false;     %if true, no forcing is applied
-forcing.amp = 0.002;      % amplitude (m/s)
-forcing.omega = 0.012;  % centered frequency
+forcing.amp = 0.001;      % amplitude (m/s)
+forcing.omega = 0.007;  % centered frequency
 kx = 2*pi / (Xmax-Xmin);    % One horizontal wavelength per domain is set (lambda_x = x domain length)
 forcing.kxx = x_c.*kx;  % computing kx*x
 forcing.t0 = 1200;      % time at forcing maxima (s)
@@ -241,7 +241,7 @@ function Q = bc(Q,t)
     if forcing.no   % i.e. if no forcing, use reflective BC for rho*w at domain bottom
         Q(1:2,:,3) = -Q(3,:,3).*(rho0(1:2,:)./rho0(3,:)).^(0.5); 
     else % enforce forcing
-        w = forcing.amp.*cos(forcing.omega.*(t-forcing.t0)-forcing.kxx).*exp(-(t-forcing.t0)^2./(2*forcing.sigmat^2));
+        w = forcing.amp.*cos(forcing.omega.*(t-forcing.t0)-forcing.kxx);%.*exp(-(t-forcing.t0)^2./(2*forcing.sigmat^2));       
         Q(1:2,:,3) = w.*rho0(1:2,:);
     end
     % bottom for E

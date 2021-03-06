@@ -21,9 +21,9 @@ function[Z_LOCATION, MAX_Lz] = FindVerticalWavenumber(profile, Z_KM, dz_KM)
     MAX_Lz = period(max_row_ind);
     
     % Generate plot
-    figure
-    contourf(period,Z_KM,power',50,'EdgeColor','none') 
-    xlabel('Vertical Wavelength (km)')
-    ylabel('z (km)')
-    title('Wavelet spectrum for vertical scale')
-    colormap jet
+%     figure
+%     contourf(period,Z_KM,power',50,'EdgeColor','none') 
+%     xlabel('Vertical Wavelength (km)')
+%     ylabel('z (km)')
+%     title('Wavelet spectrum for vertical scale')
+%     colormap jet
