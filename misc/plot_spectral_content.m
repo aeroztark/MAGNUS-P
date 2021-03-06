@@ -1,20 +1,37 @@
+% Script to test wave packets by investigating their spectral content
+
 clear
 
 % forcing parameters
 w0 = 0.001; % doesn't matter
+
+% if using omega as input:
 omega = 0.007; % rad/s
 T = 2*pi/omega;
-t0 = 2400; % sec
-sig_t = 600; % sec
+
+% if using T as input:
+% T = 1800;
+% omega = 2*pi/T;
+
+% variables to manipulate spectral content of wave packet: t0=4T, sig_t=T for spectrally narrow
+% t0=2T, sig_t=T/4 for spectrally broad
+
+t0 = 2*T; % sec
+sig_t = T/4; % sec
 
 dt = 1;
 % time array to compute forcing function
-t = 0:dt:12000; % sec
+t = 0:dt:24000; % sec
 
 % forcing function (at x = 0, z = 0)
+
+%% A. Spectrally narrow (quasi-monochromatic) or spectrally broad packet
 w = w0.*cos(omega.*(t-t0)).*exp(-((t-t0).^2)./(2*sig_t^2));
 
-% ---------------------------
+%% B. Continuosuly forced (steady state)
+%w = w0.*sin(omega.*(t-t0));
+ 
+%% ---------------------------
 
 W = fft(w);
 n = length(t);
