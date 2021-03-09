@@ -16,8 +16,8 @@ T = 2*pi/omega;
 % variables to manipulate spectral content of wave packet: t0=4T, sig_t=T for spectrally narrow
 % t0=2T, sig_t=T/4 for spectrally broad
 
-t0 = 2*T; % sec
-sig_t = T/4; % sec
+t0 = 6*T; % sec
+sig_t = 1.5*T; % sec
 
 dt = 1;
 % time array to compute forcing function
