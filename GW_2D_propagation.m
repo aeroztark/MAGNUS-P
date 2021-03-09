@@ -15,12 +15,13 @@ Zmin = 0;
 Zmax = 160000;
 dx = 500; % horizontal resolution
 dz = 500; % vertical resolution
+SpongeHeight = 50000; % sponge layer thickness in meters
 % note on indexing: X(row,col) --> X(z_ind, x_ind)
 
 ZDomainEnd = Zmax; % last value of Z for ' physically valid' domain (pre-sponge)
 
 if IsTopSpongeLayer == 1
-    Zmax = Zmax + 100000;    % extend Z by 50 km for computations
+    Zmax = Zmax + SpongeHeight;    % extend Z by 50 km for computations
 end
 
 Xdomain = Xmax-Xmin;
@@ -31,10 +32,9 @@ z_c = Zmin-3*dz/2:dz:Zmax+3*dz/2;
 [X,Z] = meshgrid(x_c,z_c);    % grid of cell centers
 [J,I] = size(X);  %J gives no of z levels and I gives no of x levels
 
-
-    LastDomainZindex = find(z_c > ZDomainEnd & z_c < ZDomainEnd+dz)-1; % last Z index for the 'physically valid' domain
-    FirstSpongeZindex = LastDomainZindex + 1;
-
+% managing z axis indices
+LastDomainZindex = find(z_c > ZDomainEnd & z_c < ZDomainEnd+dz)-1; % last Z index for the 'physically valid' domain
+FirstSpongeZindex = LastDomainZindex + 1;
 if IsTopSpongeLayer == 0  % if no sponge layer is implemented, just take last 2 indices out for top BCs
     LastDomainZindex = LastDomainZindex - 2;
 end
@@ -42,12 +42,12 @@ end
 % ---- Time parameters ----
 Tmin  = 0;    % Initial time
 Tmax  = 8000; % Final time in seconds
-skipT = 10;  % Number of seconds to skip storing results
+skipT = 30;  % Number of seconds to skip storing results
 % computation happens after every dt but only limited data is stored
 n = 0;       % First Step n = 0 (n counts the current stored frame)
 t = Tmin;    % First time t = Tmin
 nframe = 1;  % First frame = 1 (nframe is the total no of stored frames)
-T_arr(nframe)=0; % T_arr is the time array of stored frames
+T_arr(nframe) = 0; % T_arr is the time array of stored frames
 
 % ---- Background atmosphere
 
@@ -55,6 +55,12 @@ global g R P0 rho0 gamma C;
 
 % Using Earth isothermal model
  [~,rho0,P0,R,gamma,kinvisc,H,C] = Earth_isothermal(Z);
+ 
+ % setting viscosity coefficient constant in sponge layer to prevent
+ % diffusion timestep being too low
+ if IsTopSpongeLayer == 1
+     kinvisc(FirstSpongeZindex:end,:) = kinvisc(LastDomainZindex,1);
+ end
 % Using Earth MSIS model
 %[~,rho0,P0,R,gamma,kinvisc,H,C,] = Earth_MSIS(Z,10,180,2020,1,0);
 
@@ -74,7 +80,7 @@ g = repmat(g,1,size(X,2)-1);
 global wind
 
 % Gaussian wind shear
-u_max = 100;    % wind amplitude (m/s) 
+u_max = 0;    % wind amplitude (m/s) 
 u_zloc = 100000;    % z location of wind peak (m)
 u_sig = 10000;    % stdev of wind profile (m)
 wind= u_max.*exp(-(Z-u_zloc).^2./(2*u_sig^2));    % also a matrix of size X=Z
@@ -166,12 +172,8 @@ while t < Tmax
     
     
     % Sponge layer implementation
-    if IsTopSpongeLayer ~= 0
-            constantVisc = kinvisc(LastDomainZindex,42);
-            SpongeVisc = zeros(size(kinvisc));
-            SpongeVisc(FirstSpongeZindex:end,:) = constantVisc;
-            Q = MolecularViscosity(SpongeVisc,difCFL,dt,dx,dz,jD,iD,Q,t);
-            
+    if IsTopSpongeLayer == 1
+            Q = MolecularViscosity(kinvisc,difCFL,dt,dx,dz,jD,iD,Q,t);        
     end
     
     % ---- Update time ----
