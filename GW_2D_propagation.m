@@ -3,6 +3,9 @@ clc
 clear
 close all
 
+% import simulation configuration file
+%[time,domain,dCFL,difCFL,flags,atmo,wind,forcing] = config();
+
 %% Simulation inputs
 % ---- Domain size (in meters) ----
 IsTopSpongeLayer = 1; % flag to include a 50 km sponge layer on top
@@ -173,7 +176,7 @@ while t < Tmax
     
     % Sponge layer implementation
     if IsTopSpongeLayer == 1
-            Q = MolecularViscosity(kinvisc,difCFL,dt,dx,dz,jD,iD,Q,t);        
+        Q = MolecularViscosity(kinvisc,difCFL,dt,dx,dz,jD,iD,Q,t);        
     end
     
     % ---- Update time ----

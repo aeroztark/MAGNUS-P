@@ -11,14 +11,16 @@ h0 = 1; % m
 w0 = 9.5e-6; % coefficient to get desired value of w
 u0 = 0; % wind speed at sea surface
 
-X = X-12;
+%X = X-12;
 for t = 0:dt:t_end
+    
+        if t < tau
     
         h = (t/tau).*(h0.*airy(1-X).*(X./2).*exp((2-X)./2)); % ref Wu et al, Frit et al
         w = (t/tau).*(w0).*(u0-c).*(h0/2).*exp((2-X)./2).*(airy(1-X)-airy(1,1-X).*X-airy(1-X).*(X./2));
         
-        if t > tau
-            X_steady = X-(c*(t-tau))/100000;
+        else
+            X_steady = X-(c*(t-tau))/100000; % in 100 km units
             h = h0.*airy(1-X_steady).*(X_steady./2).*exp((2-X_steady)./2);
             w = (w0).*(u0-c).*(h0/2).*exp((2-X_steady)./2).*(airy(1-X_steady)-airy(1,1-X_steady).*X-airy(1-X_steady).*(X_steady./2));
         end
@@ -26,17 +28,25 @@ for t = 0:dt:t_end
 
 end
 
+% To plot: set t = tau, then compute h ad w -> run the plot script below
     
-    plot(x./1000,w,'Linewidth',2)
+    figure
+    plot(x./1000,w.*1000,'Linewidth',1)
+    ylabel('Vertical velocity (mm/s)','Interpreter','latex','FontSize',12)
+    ylim([-1.2 1.2])
     
     yyaxis right
-    plot(x./1000,h,'--','Linewidth',2)
+    plot(x./1000,h,'--','Linewidth',1)
     ylim([-1 1])
-    pause(0.01)
-% pause(0.01)
-% xlabel('x (km)','Interpreter','latex','FontSize',12)
-% ylabel('sea surface height (m)','Interpreter','latex','FontSize',12)
-% title('Tsunami forcing','Interpreter','latex','FontSize',14)
+    ylabel('sea surface height (m)','Interpreter','latex','FontSize',12)
+    xlabel('x (km)','Interpreter','latex','FontSize',12)
+    xlim([-2500 2500])
+    title('Tsunami forcing','Interpreter','latex','FontSize',14)
+    %pause(0.1)
+    
+
+
+
 
 
 
