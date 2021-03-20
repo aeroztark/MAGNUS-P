@@ -1,4 +1,4 @@
-function[T,rho,p,R,gamma,kvisc,thermdiffus,H,C] = Earth_isothermal(z_array)
+function[T,rho,p,R,gamma,kvisc,H,C] = Earth_isothermal(z_array)
 
 % Earth isothermal model to provide atmospheric state
 % input: z_array -> Z x X array 
@@ -23,4 +23,3 @@ H = H.*ones(size(z_array));
 gamma = gamma.*ones(size(z_array));
 %N = sqrt(gamma-1)*9.8/C;
 kvisc = (3.5e-7)*(T.^0.69)./rho; % Banks & Kockarts, 1973
-thermdiffus = kvisc./Pr;

@@ -435,7 +435,7 @@ global R gamma
         % Using an explicit scheme: forward Euler in time and centrered difference in space
         T_diff(jD,iD) = T_diff(jD,iD) + thermdiffus(jD,iD).*(dt_sub/dz^2).*(T_diff(jD+1,iD)-2.*T_diff(jD,iD)+T_diff(jD-1,iD)); % get updated T
         P = Q(:,:,1).*R.*(T_diff + T_ref); % get updated P
-        Q(jD,iD,4) = P(jD,iD)./(gamma(jD,iD)-1) + 0.5*(Q(jD,iD,2).^2+Q(jD,iD,3).^2)./Q(jD,iD,1); % get updated E
+        Q(jD,iD,4) = P(jD,iD)./(gamma-1) + 0.5*(Q(jD,iD,2).^2+Q(jD,iD,3).^2)./Q(jD,iD,1); % get updated E
         
         % apply BCs
         Q = bc(Q,t);
