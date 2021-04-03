@@ -4,7 +4,7 @@ clear
 close all
 
 % import simulation configuration file
-%[time,domain,dCFL,difCFL,flags,atmo,wind,forcing] = config();
+[time,domain,dCFL,difCFL,flags,atmo,wind,forcing] = config();
 
 %% Simulation inputs
 % ---- Domain size (in meters) ----
@@ -173,7 +173,7 @@ while t < Tmax
     
     % Thermal conductivity
     if IsConduction == 1
-        Q = ThermalConduction(thermdiffus,difCFL,T0,dt,dx,dz,jD,iD,Q,t);
+        Q = ThermalConduction(thermdiffus,difCFL,T0,dt,dx,dz,x_c,z_c,jD,iD,Q,t);
     end
     
     % Sponge layer implementation
@@ -388,9 +388,9 @@ function[Q] = MolecularViscosity(kinvisc,difCFL,dt,dx,dz,jD,iD,Q,t)
     end
 end
 
-function[Q] = ThermalConduction(thermdiffus,difCFL,T_ref,dt,dx,dz,jD,iD,Q,t)
+function[Q] = ThermalConduction(thermdiffus,difCFL,T_ref,dt,dx,dz,x_c,z_c,jD,iD,Q,t)
 
-global R gamma
+global R gamma P0
     % This function solves the diffusion equation for thermal conduction
     % inputs: thermdiffus -> array of thermal diffusivity values
              % T_ref -> backgrounf temperature field
@@ -435,10 +435,28 @@ global R gamma
         % Using an explicit scheme: forward Euler in time and centrered difference in space
         T_diff(jD,iD) = T_diff(jD,iD) + thermdiffus(jD,iD).*(dt_sub/dz^2).*(T_diff(jD+1,iD)-2.*T_diff(jD,iD)+T_diff(jD-1,iD)); % get updated T
         P = Q(:,:,1).*R.*(T_diff + T_ref); % get updated P
-        Q(jD,iD,4) = P(jD,iD)./(gamma-1) + 0.5*(Q(jD,iD,2).^2+Q(jD,iD,3).^2)./Q(jD,iD,1); % get updated E
+        Q(jD,iD,4) = P(jD,iD)./(gamma(jD,iD)-1) + 0.5*(Q(jD,iD,2).^2+Q(jD,iD,3).^2)./Q(jD,iD,1); % get updated E
+       
+
+         % If using implicit methods (uncomment everything above) -------------------------
+         %P_diff = (Q(:,:,4)-0.5.*(Q(:,:,2).^2+Q(:,:,3).^2)./Q(:,:,1)).*(gamma-1) - P0;
+         %T_diff = P_diff./(R.*Q(:,:,1)); % diffusion will be applied only to deviation from reference state
+
+         % Select either one:
+         % a. Direct implicit method (uses LU factorization to solve linear system)
+         %T_diff_new = Implicit_Diffusion(length(x_c),length(z_c),dx,dz,dt,thermdiffus,T_diff);
         
+         % b. Iterative implicit method (Gauss-Seidel method)
+         %T_diff_new = gauss_seidel(dx,dz,dt,iD,jD,T_diff,thermdiffus,1e-03);
+        
+%         P = Q(:,:,1).*R.*T_diff_new + P0;
+%         
+%         Q(jD,iD,4) = P(jD,iD)./(gamma(jD,iD)-1) + 0.5*(Q(jD,iD,2).^2+Q(jD,iD,3).^2)./Q(jD,iD,1); % get updated E
+       % -----end of implicit method steps--------------
+
         % apply BCs
         Q = bc(Q,t);
     
     end
 end
+

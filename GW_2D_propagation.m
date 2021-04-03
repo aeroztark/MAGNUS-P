@@ -3,37 +3,12 @@ clc
 clear
 close all
 
-% import simulation configuration file
-%[time,domain,dCFL,difCFL,flags,atmo,wind,forcing] = config();
+% import appropriate simulation configuration file
+config_baseline;
 
-%% Simulation inputs
-% ---- Domain size (in meters) ----
-IsTopSpongeLayer = 0; % flag to include a 50 km sponge layer on top
-IsViscosity = 1;% flag to solve for molecular viscosity
-IsConduction = 1; % flag to solve for thermal conduction  
+%% Additional configuration from inputs of the config file
 
-Xmin = -30000;
-Xmax = 30000;
-Zmin = 0;
-Zmax = 200000;
-dx = 500; % horizontal resolution
-dz = 500; % vertical resolution
-SpongeHeight = 50000; % sponge layer thickness in meters
 % note on indexing: X(row,col) --> X(z_ind, x_ind)
-
-ZDomainEnd = Zmax; % last value of Z for ' physically valid' domain (pre-sponge)
-
-if IsTopSpongeLayer == 1
-    Zmax = Zmax + SpongeHeight;    % extend Z by 50 km for computations
-end
-
-Xdomain = Xmax-Xmin;
-Zdomain = Zmax-Zmin;
-% Define positions at cell centers
-x_c = Xmin-3*dx/2:dx:Xmax+3*dx/2;   %2 centre points outside on either boundary
-z_c = Zmin-3*dz/2:dz:Zmax+3*dz/2;
-[X,Z] = meshgrid(x_c,z_c);    % grid of cell centers
-[J,I] = size(X);  %J gives no of z levels and I gives no of x levels
 
 % managing z axis indices
 LastDomainZindex = find(z_c > ZDomainEnd & z_c < ZDomainEnd+dz)-1; % last Z index for the 'physically valid' domain
@@ -42,73 +17,18 @@ if IsTopSpongeLayer == 0  % if no sponge layer is implemented, just take last 2 
     LastDomainZindex = LastDomainZindex - 2;
 end
 
-% ---- Time parameters ----
-Tmin  = 0;    % Initial time
-Tmax  = 8000; % Final time in seconds
-skipT = 30;  % Number of seconds to skip storing results
-% computation happens after every dt but only limited data is stored
-n = 0;       % First Step n = 0 (n counts the current stored frame)
-t = Tmin;    % First time t = Tmin
-nframe = 1;  % First frame = 1 (nframe is the total no of stored frames)
-T_arr(nframe) = 0; % T_arr is the time array of stored frames
-
-% ---- Background atmosphere
-
-global g R P0 rho0 gamma C; 
-
-% Using Earth isothermal model
- [T0,rho0,P0,R,gamma,kinvisc,thermdiffus,H,C] = Earth_isothermal(Z);
- 
- % setting viscosity coefficient constant in sponge layer to prevent
- % diffusion timestep being too low
+% setting viscosity coefficient constant in sponge layer to prevent diffusion timestep being too low
+% may not be a concern with implicit method
  if IsTopSpongeLayer == 1
      kinvisc(FirstSpongeZindex:end,:) = kinvisc(LastDomainZindex,1);
  end
-% Using Earth MSIS model
-%[~,rho0,P0,R,gamma,kinvisc,H,C,] = Earth_MSIS(Z,10,180,2020,1,0);
 
 % model gravity to maintain hydrostatic equilibrium initially (g dimension is Z-1 x X-1)
 g = (P0(2:end,1)-P0(1:end-1,1))./(-0.5*dz*(rho0(2:end,1)+rho0(1:end-1,1)));
 g = repmat(g,1,size(X,2)-1);
 
-% Viscosity and Thermal Diffusivity Profiles
-% dynvisc = 1.3e-5; % sample molecular viscosity
-% Pr = 0.7; % Prandtl number
-% kinvisc = dynvisc./rho0;
-% tdiffus = kinvisc./Pr;
-
- 
-
-% ---- Background wind (modelled as horizontal wind with vertical Gaussian or Linear profile)
-global wind
-
-% Gaussian wind shear
-u_max = 0;    % wind amplitude (m/s) 
-u_zloc = 100000;    % z location of wind peak (m)
-u_sig = 10000;    % stdev of wind profile (m)
-wind= u_max.*exp(-(Z-u_zloc).^2./(2*u_sig^2));    % also a matrix of size X=Z
-
-% linear wind shear
-% wind = linspace(0,u_max,length(z_c));
-% wind = repmat(wind',1,length(x_c));
-
-% ---- Wave forcing
-global forcing
-% A lower boundary Source is simulated as Gaussian w perturbation
-forcing.no = false;     %if true, no forcing is applied
-forcing.amp = 0.001;      % amplitude (m/s)
-forcing.omega = 0.007;  % centered frequency
-kx = 2*pi / (Xmax-Xmin);    % One horizontal wavelength per domain is set (lambda_x = x domain length)
-forcing.kxx = x_c.*kx;  % computing kx*x
-forcing.t0 = 1200;      % time at forcing maxima (s)
-forcing.sigmat=600;     % forcing half width time (s)
-
-% ---- timestep and CFL ----
-dCFL = 0.8; % desired Courant-Friedrichs-Lewy number
-difCFL = 0.2; % CFL for diffusion problem
+% ---- initial timestep calculation
 dt = dCFL.*min(dx,dz)./max(max(C));   %limited by speed of sound
-
-%------End of Inputs--------------------------- 
 
 %% Simulation setup
 
@@ -210,8 +130,8 @@ end
 KE = squeeze(0.5*(Q_save(3:LastDomainZindex,3:end-2,2,:).^2+Q_save(3:LastDomainZindex,3:end-2,3,:).^2)./Q_save(3:LastDomainZindex,3:end-2,1,:));
 P_PERT = (squeeze(Q_save(3:LastDomainZindex,3:end-2,4,:))-KE).*(gamma(3:LastDomainZindex,3:end-2)-1)-P0(3:LastDomainZindex,3:end-2);
 T_PERT = P_PERT./(R(3:LastDomainZindex,3:end-2).*squeeze(Q_save(3:LastDomainZindex,3:end-2,1,:)));
-U = squeeze(Q_save(3:LastDomainZindex,3:end-2,2,:)./Q_save(3:LastDomainZindex,3:end-2,1,:));
-W = squeeze(Q_save(3:LastDomainZindex,3:end-2,3,:)./Q_save(3:LastDomainZindex,3:end-2,1,:));
+U = squeeze(Q_save(3:LastDomainZindex,3:end-2,2,:)./Q_save(3:LastDomainZindex,3:end-2,1,:));    %horiz. wind (not perturbation)
+W = squeeze(Q_save(3:LastDomainZindex,3:end-2,3,:)./Q_save(3:LastDomainZindex,3:end-2,1,:));    % vertical wind (not perturbation)
 
 SCALING_FACTOR = sqrt(rho0(3:LastDomainZindex,3:end-2)./rho0(3,3:end-2)); % an 2d Z-X matrix
 Z_KM = z_c(3:LastDomainZindex)./1000; % grid center arrays for plotting the computational domain
@@ -275,6 +195,7 @@ function Q = bc(Q,t)
         Q(1:2,:,3) = -Q(3,:,3).*(rho0(1:2,:)./rho0(3,:)).^(0.5); 
     else % enforce forcing
         w = forcing.amp.*cos(forcing.omega.*(t-forcing.t0)-forcing.kxx).*exp(-(t-forcing.t0)^2./(2*forcing.sigmat^2));
+       
         %w = Tsunami_forcing(t); 
         Q(1:2,:,3) = w.*rho0(1:2,:);
     end
