@@ -1,39 +1,47 @@
     
-function[T_diff] = gauss_seidel(dx,dz,dt,iD,jD,T_diff,thermdiffus,tolerance,omega)
+function[U_diff] = gauss_seidel(dx,dz,dt,iD,jD,U_diff,alpha,tolerance,omega)
 
-% Function to solve 2D Transient state heat conduction implicitly using
-% Gauss-Seidel iterative solver
+% Function to solve 2D diffusion equation implicitly using
+% Gauss-Seidel iterative solver: to be used for solution of molecular
+% viscosity and thermal conduction equations
+%   dU/dt = alpha*[Uxx + Uzz
 
+% inputs:
+% dx,dz,dt -> space and time steps
+% iD,jD -> domain indices from the simulation script
+% U_diff -> quantity to be solved for (prognostic var)
+% alpha -> viscosity coefficient (kinematic visc or themal diffusivity)
+% tolerance -> suitable tolerance for the solution 
+% omega  -> relaxation factor (set as 1 for Gauss Seidel)
 
      
-    T_old = T_diff;                  % for updation old values in convergence loop
-    T_prev = T_diff;
+    U_old = U_diff;                  % for updation old values in convergence loop
+    U_prev = U_diff;
     n_iter = 1;            % to count the number of total iterations            
 
     % Mesh Fourier numbers
-    Fx = thermdiffus.*(dt/dx^2);         % for ease of calculation
-    Fz = thermdiffus.*(dt/dz^2);
+    Fx = alpha.*(dt/dx^2);         % for ease of calculation
+    Fz = alpha.*(dt/dz^2);
     
    
-    error = 1e6;              % error initialized to 1 before each time loop
+    error = 1;              % error initialized to 1 before each time loop
     
     % convergence loop
     while error > tolerance
+        
     % nodal loop
     % implicit scheme using Gauss-Seidel
-        T_diff(jD,iD) = (T_prev(jD,iD) + Fx.*(T_diff(jD,iD-1) + T_old(jD,iD+1))+...
-                        Fz.*(T_diff(jD-1,iD) + T_old(jD+1,iD)))./(1+2.*Fx + 2.*Fz);
-         T_diff(jD,iD) = omega*T_diff(jD,iD) + (1-omega)*T_prev(jD,iD);    
-            % convergence criterion
-        error = max(max(abs(T_diff - T_old)));
-            % updating old values
-        T_old = T_diff;
+        U_diff(jD,iD) = (U_prev(jD,iD) + Fx.*(U_diff(jD,iD-1) + U_old(jD,iD+1))+...
+                        Fz.*(U_diff(jD-1,iD) + U_old(jD+1,iD)))./(1+2.*Fx + 2.*Fz);
+        % if doing SOR:         
+        %U_diff(jD,iD) = omega*U_diff(jD,iD) + (1-omega)*U_prev(jD,iD);    
+        
+        % convergence criterion
+        error = max(max(abs(U_diff - U_old)));
+        
+        % updating old values
+        U_old = U_diff;
         n_iter = n_iter +1;
     end
-        % updating previous values
-        %\T_prev = T_diff;
-        
-      
-        % Enforce BC outside the function
  
 end
