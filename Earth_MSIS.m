@@ -1,5 +1,5 @@
 
-function[T,rho,p,R,gamma,kvisc,H,C,omega_BV,omega_AC] = Earth_MSIS(z_array,lat,lon,year,DOY,UTsec)
+function[T,rho,p,R,gamma,kvisc,thermdiffus,H,C,omega_BV,omega_AC] = Earth_MSIS(z_array,lat,lon,year,DOY,UTsec)
 % This function used NRLMSISE-00 model to compute background T, rho, P, gamma, R, kvisc, H, sound speed and BV/acoustic cutoff frequencies for Earth's atmosphere 
 % input: provide z in meters and other params for MSISE (lat-lon & time)
 
@@ -17,6 +17,8 @@ O = den(:,2);
 M = N2 + O2 + O;    % total number density
 
 MM = (28.*N2 + 32.*O2 + 16.*O)./M; % mean molecular mass
+
+Pr = 0.7;
 
 % --- property computations
 gamma = ((1.4.*(O2+N2))+1.67.*O)./M; % from Snively and Pasko. Simple weighing
@@ -43,6 +45,7 @@ p = repmat(p,1,B);
 R = repmat(R,1,B);
 gamma = repmat(gamma,1,B); 
 kvisc = repmat(kvisc,1,B); 
+thermdiffus = kvisc./Pr;
 H = repmat(H,1,B); 
 C = repmat(C,1,B); 
 omega_BV = repmat(omega_BV,1,B); 
