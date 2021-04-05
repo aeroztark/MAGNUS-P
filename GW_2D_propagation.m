@@ -4,7 +4,7 @@ clear
 close all
 
 % import appropriate simulation configuration file
-config_tsunami;
+config_baseline;
 
 %% Additional configuration from inputs of the config file
 
@@ -88,17 +88,17 @@ while t < Tmax
     % Solve for diffusion terms
     % Molecular Diffusion
     if IsViscosity == 1
-        Q = MolecularViscosity(kinvisc,difCFL,dt,dx,dz,jD,iD,Q,t);
+        Q = MolecularViscosity(kinvisc,difCFL,dt,dx,dz,jD,iD,Q,t,IsDiffusionImplicit);
     end
     
     % Thermal conductivity
     if IsConduction == 1
-        Q = ThermalConduction(thermdiffus,difCFL,T0,dt,dx,dz,x_c,z_c,jD,iD,Q,t);
+        Q = ThermalConduction(thermdiffus,difCFL,T0,dt,dx,dz,x_c,z_c,jD,iD,Q,t,IsDiffusionImplicit);
     end
     
     % Sponge layer implementation
     if IsTopSpongeLayer == 1
-        Q = MolecularViscosity(kinvisc,difCFL,dt,dx,dz,jD,iD,Q,t);        
+        Q = MolecularViscosity(kinvisc,difCFL,dt,dx,dz,jD,iD,Q,t,IsDiffusionImplicit);        
     end
     
     % ---- Update time ----
@@ -137,41 +137,6 @@ SCALING_FACTOR = sqrt(rho0(3:LastDomainZindex,3:end-2)./rho0(3,3:end-2)); % an 2
 Z_KM = z_c(3:LastDomainZindex)./1000; % grid center arrays for plotting the computational domain
 X_KM = x_c(3:end-2)./1000;
 
-%% Plotting
-figure(1);
-%cmocean balance
-Nmax=size(T_arr,2);
-
-
-for n=1:Nmax
-    
-    %plot results: Pressure
-    subplot(2,2,1);
-    contourf(X_KM,Z_KM,P_PERT(:,:,n),50,'Edgecolor','none'); 
-    colorbar; 
-    xlabel('x (km)'); ylabel('z (km)'); title(['Pressure Perturbation (Pa) at time t=',num2str(T_arr(n)),'s']);
-    
-    %plot results: Temperature
-    subplot(2,2,2);
-    contourf(X_KM,Z_KM,T_PERT(:,:,n),50,'Edgecolor','none'); 
-    colorbar; 
-    xlabel('x (km)'); ylabel('z (km)'); title(['Temperature Perturbation (K) at time t=',num2str(T_arr(n)),'s']);
-    
-    %plot results: Horizontal Velocity
-    subplot(2,2,3);
-    contourf(X_KM,Z_KM,U(:,:,n),50,'Edgecolor','none'); 
-    colorbar; 
-    xlabel('x (km)'); ylabel('z (km)'); title(['u (m/s) at time t=',num2str(T_arr(n)),'s']);
-    
-    %plot results: Vertical Velocity
-    subplot(2,2,4);
-    contourf(X_KM,Z_KM,W(:,:,n),50,'Edgecolor','none'); 
-    colorbar; 
-    xlabel('x (km)'); ylabel('z (km)'); title(['w (m/s) at time t=',num2str(T_arr(n)),'s']);
-    
-    pause(0.01)
-end
-
 %% Function definitions
 
 %% ---- Boundary Conditions ----
@@ -194,9 +159,9 @@ function Q = bc(Q,t)
     if forcing.no   % i.e. if no forcing, use reflective BC for rho*w at domain bottom
         Q(1:2,:,3) = -Q(3,:,3).*(rho0(1:2,:)./rho0(3,:)).^(0.5); 
     else % enforce forcing
-        %w = forcing.amp.*cos(forcing.omega.*(t-forcing.t0)-forcing.kxx).*exp(-(t-forcing.t0)^2./(2*forcing.sigmat^2));
+        w = forcing.amp.*cos(forcing.omega.*(t-forcing.t0)-forcing.kxx).*exp(-(t-forcing.t0)^2./(2*forcing.sigmat^2));
        
-        w = Tsunami_forcing(t); 
+        %w = Tsunami_forcing(t); 
         Q(1:2,:,3) = w.*rho0(1:2,:);
     end
     % bottom for E
@@ -261,7 +226,7 @@ end
 
 %% ---- Viscous terms ----
 
-function[Q] = MolecularViscosity(kinvisc,difCFL,dt,dx,dz,jD,iD,Q,t)
+function[Q] = MolecularViscosity(kinvisc,difCFL,dt,dx,dz,jD,iD,Q,t,IsDiffusionImplicit)
 global wind
     % This function solves the diffusion equation for molecular viscosity
     % inputs: kinvic -> array of kinematic viscosity values
@@ -329,7 +294,7 @@ global wind
     end
 end
 
-function[Q] = ThermalConduction(thermdiffus,difCFL,T_ref,dt,dx,dz,x_c,z_c,jD,iD,Q,t)
+function[Q] = ThermalConduction(thermdiffus,difCFL,T_ref,dt,dx,dz,x_c,z_c,jD,iD,Q,t,IsDiffusionImplicit)
 
 global R gamma P0
     % This function solves the diffusion equation for thermal conduction
