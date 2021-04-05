@@ -31,8 +31,8 @@ function[U_diff] = gauss_seidel(dx,dz,dt,iD,jD,U_diff,alpha,tolerance,omega)
         
     % nodal loop
     % implicit scheme using Gauss-Seidel
-        U_diff(jD,iD) = (U_prev(jD,iD) + Fx.*(U_diff(jD,iD-1) + U_old(jD,iD+1))+...
-                        Fz.*(U_diff(jD-1,iD) + U_old(jD+1,iD)))./(1+2.*Fx + 2.*Fz);
+        U_diff(jD,iD) = (U_prev(jD,iD) + Fx(jD,iD).*(U_diff(jD,iD-1) + U_old(jD,iD+1))+...
+                        Fz(jD,iD).*(U_diff(jD-1,iD) + U_old(jD+1,iD)))./(1+2.*Fx(jD,iD) + 2.*Fz(jD,iD));
         % if doing SOR:         
         %U_diff(jD,iD) = omega*U_diff(jD,iD) + (1-omega)*U_prev(jD,iD);    
         
