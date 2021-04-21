@@ -2,8 +2,8 @@
 
 %% ---- Time settings ----
 Tmin  = 0;    % Initial time
-Tmax  = 10800; % Final time in seconds (3 hrs)
-skipT = 60;  % Number of seconds to skip storing results (1 min)
+Tmax  = 7200; % Final time in seconds (3 hrs)
+skipT = 180;  % Number of seconds to skip storing results (1 min)
 % computation happens after every dt but only limited data is stored
 n = 0;       % First Step n = 0 (n counts the current stored frame)
 t = Tmin;    % First time t = Tmin
@@ -12,18 +12,18 @@ T_arr(nframe) = 0; % T_arr is the time array of stored frames
 
 %% ---- Viscous phenomenon flags ----
 IsTopSpongeLayer = 1; % flag to include a sponge layer on top
-IsViscosity = 1;% flag to solve for molecular viscosity
-IsConduction = 1; % flag to solve for thermal conduction  
+IsViscosity = 0;% flag to solve for molecular viscosity
+IsConduction = 0; % flag to solve for thermal conduction  
 IsDiffusionImplicit = 0;
 %% ---- Domain settings ----
 % note on indexing: X(row,col) --> X(z_ind, x_ind)
-Xmin = -3000000;
-Xmax = 3000000;
+Xmin = 0;
+Xmax = 350000;
 Zmin = 0;
-Zmax = 200000;
-dx = 10000; % horizontal resolution
-dz = 500; % vertical resolution
-SpongeHeight = 20000; % sponge layer thickness in meters
+Zmax = 10000;
+dx = 1000; % horizontal resolution
+dz = 200; % vertical resolution
+SpongeHeight = 40000; % sponge layer thickness in meters
 
 ZDomainEnd = Zmax; % last value of Z for ' physically valid' domain (pre-sponge)
 
@@ -49,8 +49,8 @@ global g R P0 rho0 gamma C;
 % If using Earth isothermal model
 % [T0,rho0,P0,R,gamma,kinvisc,thermdiffus,H,C] = Earth_isothermal(Z);
  
-% If using Earth MSIS model
- [T0,rho0,P0,R,gamma,kinvisc,thermdiffus,H,C,~,~] = Earth_MSIS(Z,3.5,96,2004,361,7200);
+% Using Mars model from MCD
+ [T0,rho0,P0,R,gamma,kinvisc,thermdiffus,H,C,U] = Mars_MOLApass260(Z);
  
 %% ---- Background wind ----
 % only horizontal wind is specified -> time invariant. Vertical wind is zero.
@@ -58,22 +58,23 @@ global g R P0 rho0 gamma C;
 
 global wind
 % Gaussian wind shear
-u_max = 0;    % wind amplitude (m/s) 
-u_zloc = 100000;    % z location of wind peak (m)
-u_sig = 10000;    % stdev of wind profile (m)
-wind = u_max.*exp(-(Z-u_zloc).^2./(2*u_sig^2));    % wind profile, also a matrix of size X=Z
+% u_max = 0;    % wind amplitude (m/s) 
+% u_zloc = 100000;    % z location of wind peak (m)
+% u_sig = 10000;    % stdev of wind profile (m)
+% wind = u_max.*exp(-(Z-u_zloc).^2./(2*u_sig^2));    % wind profile, also a matrix of size X=Z
 
 % linear wind shear
-% wind = linspace(0,u_max,length(z_c));
-% wind = repmat(wind',1,length(x_c));    % also a matrix of size X=Z
+ wind = U;
 
 %% ---- Wave forcing ----
 % A tsunami forcing function is called in the main file
 global forcing
 forcing.no = false;     %if true -> no forcing is applied
-% forcing.amp = 0.001;      % amplitude (m/s)
-% forcing.omega = 0.007;  % centered frequency
-% kx = 2*pi / (Xmax-Xmin);    % One horizontal wavelength per domain is set (lambda_x = x domain length)
-% forcing.kxx = x_c.*kx;  % computing kx*x
-% forcing.t0 = 1200;      % time at forcing maxima (s)
-% forcing.sigmat=600;     % forcing half width time (s)
+
+load('Smooth_pass260_topo.mat') % load smoothened topography
+% sample topography at model x scale
+hq = interp1(x,h,x_c./1000,'spline');
+% Forcing from the obtained topography
+dh_dx = diff(hq)./(dx/1000); % gradient
+dh_dx = [dh_dx(1), dh_dx]; % append the same at position 1 to make the same length vector
+forcing.topo_w = 10.*dh_dx;  % surface wind x topography horizontal gradient

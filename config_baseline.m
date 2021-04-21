@@ -3,7 +3,7 @@
 %% ---- Time settings ----
 Tmin  = 0;    % Initial time
 Tmax  = 8000; % Final time in seconds
-skipT = 30;  % Number of seconds to skip storing results
+skipT = 10;  % Number of seconds to skip storing results
 % computation happens after every dt but only limited data is stored
 n = 0;       % First Step n = 0 (n counts the current stored frame)
 t = Tmin;    % First time t = Tmin
@@ -11,9 +11,9 @@ nframe = 1;  % First frame = 1 (nframe is the total no of stored frames)
 T_arr(nframe) = 0; % T_arr is the time array of stored frames
 
 %% ---- Viscous phenomenon flags ----
-IsTopSpongeLayer = 1; % flag to include a 50 km sponge layer on top
-IsViscosity = 0;% flag to solve for molecular viscosity
-IsConduction = 0; % flag to solve for thermal conduction  
+IsTopSpongeLayer = 0; % flag to include a 50 km sponge layer on top
+IsViscosity = 1;% flag to solve for molecular viscosity
+IsConduction = 1; % flag to solve for thermal conduction  
 IsDiffusionImplicit = 1;
 %% ---- Domain settings ----
 % note on indexing: X(row,col) --> X(z_ind, x_ind)
@@ -23,7 +23,7 @@ Zmin = 0;
 Zmax = 160000;
 dx = 500; % horizontal resolution
 dz = 500; % vertical resolution
-SpongeHeight = 50000; % sponge layer thickness in meters
+SpongeHeight = 20000; % sponge layer thickness in meters
 
 ZDomainEnd = Zmax; % last value of Z for ' physically valid' domain (pre-sponge)
 

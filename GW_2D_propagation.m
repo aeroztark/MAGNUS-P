@@ -1,10 +1,10 @@
 
 clc
-clear
+%clear
 close all
 
 % import appropriate simulation configuration file
-config_baseline;
+config_MarsCO2;
 
 %% Additional configuration from inputs of the config file
 
@@ -159,8 +159,8 @@ function Q = bc(Q,t)
     if forcing.no   % i.e. if no forcing, use reflective BC for rho*w at domain bottom
         Q(1:2,:,3) = -Q(3,:,3).*(rho0(1:2,:)./rho0(3,:)).^(0.5); 
     else % enforce forcing
-        w = forcing.amp.*cos(forcing.omega.*(t-forcing.t0)-forcing.kxx).*exp(-(t-forcing.t0)^2./(2*forcing.sigmat^2));
-       
+        %w = forcing.amp.*cos(forcing.omega.*(t-forcing.t0)-forcing.kxx).*exp(-(t-forcing.t0)^2./(2*forcing.sigmat^2));
+        w = forcing.topo_w;
         %w = Tsunami_forcing(t); 
         Q(1:2,:,3) = w.*rho0(1:2,:);
     end
@@ -253,41 +253,49 @@ global wind
         
         % Substep Timestep
         dt_sub = dt/N_substeps;
-
-         if IsDiffusionImplicit == 1
-             Q(:,:,4) = Q(:,:,4)-0.5*(Q(:,:,2).^2+Q(:,:,3).^2)./Q(:,:,1); % compute P/(gamma-1) 
-             Q(:,:,2:3) = Q(:,:,2:3)./Q(:,:,1);  % compute velocity
-             u_diff = Q(:,:,2) - wind;
-             w_diff = Q(:,:,3);
-             u_diff_new = gauss_seidel(dx,dz,dt,iD,jD,u_diff,kinvisc,0.001,1);
-             w_diff_new = gauss_seidel(dx,dz,dt,iD,jD,w_diff,kinvisc,0.001,1);
-             u_new = u_diff_new + wind;
-             w_new = w_diff_new;
-             Q(jD,iD,2) = Q(jD,iD,1).*u_new(jD,iD); % updated momentum
-             Q(jD,iD,3) = Q(jD,iD,1).*w_new(jD,iD);          
-             Q(jD,iD,4) = Q(jD,iD,4)+0.5*(Q(jD,iD,2).^2+Q(jD,iD,3).^2)./Q(jD,iD,1); % get updated E
-         else
-            % Explicit method:
+        
             % x-split for diffusion equation ----
             % compute intermediate values for ease:
             Q(:,:,4) = Q(:,:,4)-0.5*(Q(:,:,2).^2+Q(:,:,3).^2)./Q(:,:,1); % compute P/(gamma-1) 
             Q(:,:,2:3) = Q(:,:,2:3)./Q(:,:,1);  % compute velocity
-
-            % Using an explicit scheme: forward Euler in time and centrered difference in space
-            Q(jD,iD,2:3) = Q(jD,iD,1).*(Q(jD,iD,2:3)+kinvisc(jD,iD).*(dt_sub/dx^2).*(Q(jD,iD+1,2:3)-2.*Q(jD,iD,2:3)+Q(jD,iD-1,2:3))); % get updated rho*u and rho*w
-            Q(jD,iD,4) = Q(jD,iD,4)+0.5*(Q(jD,iD,2).^2+Q(jD,iD,3).^2)./Q(jD,iD,1); % get updated E
-
+            u_diff = Q(:,:,2) - wind;
+            w_diff = Q(:,:,3);
+            if IsDiffusionImplicit == 1
+                % Using direct Implicit method:
+                % first create coefficient matrix
+                A = CreateImplicitMatrix(Q(:,:,2),jD,iD,kinvisc.*(dt_sub/(dx^2)));
+                % then use LU decomposition to solve the linear system
+                Q(jD,iD,2) = wind(jD,iD) + A \ u_diff(jD,iD);
+                Q(jD,iD,3) = A \ w_diff(jD,iD);
+            else
+                % Using an explicit scheme: forward Euler in time and centrered difference in space
+                Q(jD,iD,2:3) = Q(jD,iD,1).*(Q(jD,iD,2:3)+kinvisc(jD,iD).*(dt_sub/dx^2).*(Q(jD,iD+1,2:3)-2.*Q(jD,iD,2:3)+Q(jD,iD-1,2:3))); % get updated rho*u and rho*w
+            end
+            
+             Q(jD,iD,4) = Q(jD,iD,4)+0.5*(Q(jD,iD,2).^2+Q(jD,iD,3).^2)./Q(jD,iD,1); % get updated E
+            
             % apply BCs
             Q = bc(Q,t);
 
             % z-split for diffusion equation ----
-
             Q(:,:,4) = Q(:,:,4)-0.5*(Q(:,:,2).^2+Q(:,:,3).^2)./Q(:,:,1);
             Q(:,:,2:3)=Q(:,:,2:3)./Q(:,:,1);
-
-            Q(jD,iD,2:3) = Q(jD,iD,1).*(Q(jD,iD,2:3)+kinvisc(jD,iD).*(dt_sub/dz^2).*(Q(jD+1,iD,2:3)-2.*Q(jD,iD,2:3)+Q(jD-1,iD,2:3)));
-            Q(jD,iD,4) = Q(jD,iD,4)+0.5*(Q(jD,iD,2).^2+Q(jD,iD,3).^2)./Q(jD,iD,1);
-         end
+            u_diff = Q(:,:,2) - wind;
+            w_diff = Q(:,:,3);
+             if IsDiffusionImplicit == 1
+                % Using direct Implicit method:
+                % first create coefficient matrix
+                A = CreateImplicitMatrix(Q(:,:,2),jD,iD,kinvisc.*(dt_sub/(dz^2)));
+                % then use LU decomposition to solve the linear system
+                Q(jD,iD,2) = wind(jD,iD) + A \ u_diff(jD,iD);
+                Q(jD,iD,3) = A \ w_diff(jD,iD);
+             else
+                 % Explicit method
+                Q(jD,iD,2:3) = Q(jD,iD,1).*(Q(jD,iD,2:3)+kinvisc(jD,iD).*(dt_sub/dz^2).*(Q(jD+1,iD,2:3)-2.*Q(jD,iD,2:3)+Q(jD-1,iD,2:3)));
+             end
+             
+             Q(jD,iD,4) = Q(jD,iD,4)+0.5*(Q(jD,iD,2).^2+Q(jD,iD,3).^2)./Q(jD,iD,1);
+         
         % apply BCs
         Q = bc(Q,t);
     
@@ -324,22 +332,22 @@ global R gamma P0
         % Substep Timestep
         dt_sub = dt/N_substeps;
         
-        if IsDiffusionImplicit == 1
-            P_diff = (Q(:,:,4)-0.5.*(Q(:,:,2).^2+Q(:,:,3).^2)./Q(:,:,1)).*(gamma-1) - P0;
-            T_diff = P_diff./(R.*Q(:,:,1)); % diffusion will be applied only to deviation from reference state
-            T_diff_new = gauss_seidel(dx,dz,dt,iD,jD,T_diff,thermdiffus,0.001,1);
-            P = Q(:,:,1).*R.*T_diff_new + P0;  % updated Pressure 
-            Q(jD,iD,4) = P(jD,iD)./(gamma(jD,iD)-1) + 0.5*(Q(jD,iD,2).^2+Q(jD,iD,3).^2)./Q(jD,iD,1); % get updated E
-        else
-            % Explicit method:
             % x-split for diffusion equation ----
             % compute intermediate values for ease:
             Q(:,:,4) = Q(:,:,4)-0.5*(Q(:,:,2).^2+Q(:,:,3).^2)./Q(:,:,1); % compute P/(gamma-1) 
             T = (Q(:,:,4).*(gamma-1))./(R.*Q(:,:,1));  % compute T
             T_diff = T - T_ref; % diffusion will be applied only to deviation from reference state
-
-            % Using an explicit scheme: forward Euler in time and centrered difference in space
-            T_diff(jD,iD) = T_diff(jD,iD) + thermdiffus(jD,iD).*(dt_sub/dx^2).*(T_diff(jD,iD+1)-2.*T_diff(jD,iD)+T_diff(jD,iD-1)); % get updated T
+            
+            if IsDiffusionImplicit == 1
+                % Using direct Implicit method:
+                A = CreateImplicitMatrix(T_diff,jD,iD,thermdiffus.*(dt_sub/(dx^2)));
+                % then use LU decomposition to solve the linear system
+                T_diff(jD,iD) = A \ T_diff(jD,iD);
+            else
+                % Using an explicit scheme: forward Euler in time and centrered difference in space
+                T_diff(jD,iD) = T_diff(jD,iD) + thermdiffus(jD,iD).*(dt_sub/dx^2).*(T_diff(jD,iD+1)-2.*T_diff(jD,iD)+T_diff(jD,iD-1)); % get updated T
+            end
+            
             P = Q(:,:,1).*R.*(T_diff + T_ref); % get updated P
             Q(jD,iD,4) = P(jD,iD)./(gamma(jD,iD)-1) + 0.5.*(Q(jD,iD,2).^2+Q(jD,iD,3).^2)./Q(jD,iD,1); % get updated E
 
@@ -350,9 +358,16 @@ global R gamma P0
             Q(:,:,4) = Q(:,:,4)-0.5*(Q(:,:,2).^2+Q(:,:,3).^2)./Q(:,:,1); % compute P/(gamma-1) 
             T = (Q(:,:,4).*(gamma-1))./(R.*Q(:,:,1));  % compute T
             T_diff = T - T_ref; % diffusion will be applied only to deviation from reference state
-
-            % Using an explicit scheme: forward Euler in time and centrered difference in space
-            T_diff(jD,iD) = T_diff(jD,iD) + thermdiffus(jD,iD).*(dt_sub/dz^2).*(T_diff(jD+1,iD)-2.*T_diff(jD,iD)+T_diff(jD-1,iD)); % get updated T
+            
+            if IsDiffusionImplicit == 1
+                % Using direct Implicit method:
+                A = CreateImplicitMatrix(T_diff,jD,iD,thermdiffus.*(dt_sub/(dz^2)));
+                % then use LU decomposition to solve the linear system
+                T_diff(jD,iD) = A \ T_diff(jD,iD);
+            else
+                % Using an explicit scheme: forward Euler in time and centrered difference in space
+                T_diff(jD,iD) = T_diff(jD,iD) + thermdiffus(jD,iD).*(dt_sub/dz^2).*(T_diff(jD+1,iD)-2.*T_diff(jD,iD)+T_diff(jD-1,iD)); % get updated T
+            end
             P = Q(:,:,1).*R.*(T_diff + T_ref); % get updated P
             Q(jD,iD,4) = P(jD,iD)./(gamma(jD,iD)-1) + 0.5*(Q(jD,iD,2).^2+Q(jD,iD,3).^2)./Q(jD,iD,1); % get updated E
         end
@@ -361,5 +376,20 @@ global R gamma P0
         Q = bc(Q,t);
 
     end
+
+
+function[A] = CreateImplicitMatrix(Q,jD,iD,F)
+% function to create the coefficient matrix for direct implicit solution of
+% 1D diffusion equation (Dimensionally split diffusion equation will be solved using LU factorization)
+% Inputs: Q -> Vector of quantities
+%         jD,iD -> domain indices
+%         F - mesh Fourier number = K*dt/(ds^2)
+
+[nrows,ncols] = size(Q(jD,iD));
+% Set the main (zero-th) diagonal as 2F+1
+A = spdiags(1+2.*F(:,1),0,zeros(nrows));
+% Set the first (+1th and -1th) diagonals as -F
+A = spdiags(-F(:,1),1,A);
+A = spdiags(-F(:,1),-1,A);
 end
 
