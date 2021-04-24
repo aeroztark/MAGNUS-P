@@ -1,9 +1,9 @@
-% Config file for baseline simulations (for testing purposes)
+% Config file for Tsunami case
 
 %% ---- Time settings ----
 Tmin  = 0;    % Initial time
-Tmax  = 8000; % Final time in seconds
-skipT = 30;  % Number of seconds to skip storing results
+Tmax  = 16400; % Final time in seconds (3 hrs)
+skipT = 60;  % Number of seconds to skip storing results (1 min)
 % computation happens after every dt but only limited data is stored
 n = 0;       % First Step n = 0 (n counts the current stored frame)
 t = Tmin;    % First time t = Tmin
@@ -11,19 +11,19 @@ nframe = 1;  % First frame = 1 (nframe is the total no of stored frames)
 T_arr(nframe) = 0; % T_arr is the time array of stored frames
 
 %% ---- Viscous phenomenon flags ----
-IsTopSpongeLayer = 1; % flag to include a 50 km sponge layer on top
-IsViscosity = 1;% flag to solve for molecular viscosity
+IsTopSpongeLayer = 1; % flag to include a sponge layer on top
+IsViscosity = 0;% flag to solve for molecular viscosity
 IsConduction = 0; % flag to solve for thermal conduction  
 IsDiffusionImplicit = 0;
 %% ---- Domain settings ----
 % note on indexing: X(row,col) --> X(z_ind, x_ind)
-Xmin = -60000;
-Xmax = 60000;
+Xmin = 0;
+Xmax = 100000;
 Zmin = 0;
 Zmax = 15000;
 dx = 500; % horizontal resolution
 dz = 500; % vertical resolution
-SpongeHeight = 20000; % sponge layer thickness in meters
+SpongeHeight = 30000; % sponge layer thickness in meters
 
 ZDomainEnd = Zmax; % last value of Z for ' physically valid' domain (pre-sponge)
 
@@ -40,17 +40,17 @@ z_c = Zmin-3*dz/2:dz:Zmax+3*dz/2;
 [J,I] = size(X);  %J gives no of z levels and I gives no of x levels
 
 %% ---- CFL ----
-dCFL = 0.8; % desired Courant-Friedrichs-Lewy number
-difCFL = 0.2; % CFL for diffusion problem
+dCFL = 0.85; % desired Courant-Friedrichs-Lewy number
+difCFL = 0.4; % CFL for diffusion problem
 
 %% ---- Background atmosphere ----
 global g R P0 rho0 gamma C; 
 
 % If using Earth isothermal model
- [T0,rho0,P0,R,gamma,kinvisc,thermdiffus,H,C] = Earth_isothermal(Z);
+% [T0,rho0,P0,R,gamma,kinvisc,thermdiffus,H,C] = Earth_isothermal(Z);
  
-% If using Earth MSIS model
-%[~,rho0,P0,R,gamma,kinvisc,H,C,] = Earth_MSIS(Z,10,180,2020,1,0);
+% Using Mars model from MCD
+ [T0,rho0,P0,R,gamma,kinvisc,thermdiffus,H,C,U] = Mars_MOLApass260(Z);
  
 %% ---- Background wind ----
 % only horizontal wind is specified -> time invariant. Vertical wind is zero.
@@ -58,32 +58,30 @@ global g R P0 rho0 gamma C;
 
 global wind
 % Gaussian wind shear
-u_max = 0;    % wind amplitude (m/s) 
-u_zloc = 100000;    % z location of wind peak (m)
-u_sig = 10000;    % stdev of wind profile (m)
-wind = u_max.*exp(-(Z-u_zloc).^2./(2*u_sig^2));    % wind profile, also a matrix of size X=Z
+% u_max = 0;    % wind amplitude (m/s) 
+% u_zloc = 100000;    % z location of wind peak (m)
+% u_sig = 10000;    % stdev of wind profile (m)
+% wind = u_max.*exp(-(Z-u_zloc).^2./(2*u_sig^2));    % wind profile, also a matrix of size X=Z
 
 % linear wind shear
-% wind = linspace(0,u_max,length(z_c));
-% wind = repmat(wind',1,length(x_c));    % also a matrix of size X=Z
-
+% wind = U;
+U = 10.*ones(size(U));
+wind = U;
 %% ---- Wave forcing ----
-% A lower boundary Source is simulated as Gaussian w perturbation
+% A tsunami forcing function is called in the main file
 global forcing
- forcing.no = false;     %if true -> no forcing is applied
-% forcing.amp = 0.001;      % amplitude (m/s)
-% forcing.omega = 0.007;  % centered frequency
-% kx = 2*pi / (Xmax-Xmin);    % One horizontal wavelength per domain is set (lambda_x = x domain length)
-% forcing.kxx = x_c.*kx;  % computing kx*x
-% forcing.t0 = 1200;      % time at forcing maxima (s)
-% forcing.sigmat=600;     % forcing half width time (s)
-H = 0.5; % km
-L = 7; %km 
-hq = -H.*exp(-((x_c./1000).^2)./(L^2));
+forcing.no = false;     %if true -> no forcing is applied
 
+% idealized ridge trough
+% H = 0.5; % km
+% L = 7; %km 
+% hq = -H.*exp(-((x_c./1000).^2)./(L^2));
+
+load('Smooth_pass260_topo.mat') % load smoothened topography
 % sample topography at model x scale
-%hq = interp1(x,h,x_c./1000,'spline');
+hq = interp1(x,h,x_c./1000,'spline');
 % Forcing from the obtained topography
 dh_dx = diff(hq)./(dx/1000); % gradient
 dh_dx = [dh_dx(1), dh_dx]; % append the same at position 1 to make the same length vector
+
 forcing.topo_w = 10.*dh_dx;  % surface wind x topography horizontal gradient

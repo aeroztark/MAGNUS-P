@@ -4,7 +4,7 @@ clear all
 close all
 
 % import appropriate simulation configuration file
-config_baseline;
+config_MarsCO2;
 
 %% Additional configuration from inputs of the config file
 
@@ -137,7 +137,13 @@ SCALING_FACTOR = sqrt(rho0(3:LastDomainZindex,3:end-2)./rho0(3,3:end-2)); % an 2
 Z_KM = z_c(3:LastDomainZindex)./1000; % grid center arrays for plotting the computational domain
 X_KM = x_c(3:end-2)./1000;
 
-%% Function definitions
+%% Plotting
+figure
+for i = 1:length(T_arr)
+contourf(X_KM,Z_KM,T_PERT(:,:,i),50,'Edgecolor','none');
+xlim([-20 60]);
+pause(0.1);
+end
 
 %% ---- Boundary Conditions ----
 function Q = bc(Q,t)
@@ -165,7 +171,7 @@ function Q = bc(Q,t)
         else
             w = forcing.topo_w;
         end
-        %w = Tsunami_forcing(t); 
+        
         Q(1:2,:,3) = w.*rho0(1:2,:);
     end
     % bottom for E

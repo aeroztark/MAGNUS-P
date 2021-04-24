@@ -6,7 +6,7 @@
 function[T,rho,p,R,gamma,kvisc,thermdiffus,H,C,U] = Mars_MOLApass260(z_array)
 
 % Ls 316.4deg. Latitude 84.0N Longitude 72.5E Local time 0.0h 
-load('atmo_pass260.mat') % this mat file must be provided
+load('atmo_pass260.mat') % this mat file must be provided (created from MCD data)
 
 % read MCD data
 z_data = table2array(atmo(:,1)); % m
