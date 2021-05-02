@@ -31,18 +31,18 @@ u0 = 0; % wind speed at sea surface
 
 % To plot: set t = tau, then compute h ad w -> run the plot script below
     
-%     figure
-%     plot(x./1000,w.*1000,'Linewidth',1)
-%     ylabel('Vertical velocity (mm/s)','Interpreter','latex','FontSize',12)
-%     ylim([-1.2 1.2])
-%     
-%     yyaxis right
-%     plot(x./1000,h,'--','Linewidth',1)
-%     ylim([-1 1])
-%     ylabel('sea surface height (m)','Interpreter','latex','FontSize',12)
-%     xlabel('x (km)','Interpreter','latex','FontSize',12)
-%     xlim([-2500 2500])
-%     title('Tsunami forcing','Interpreter','latex','FontSize',14)
+    figure
+    plot(x./1000,w.*1000,'Linewidth',1)
+    ylabel('Vertical velocity (mm/s)','Interpreter','latex','FontSize',12)
+    ylim([-1.2 1.2])
+    
+    yyaxis right
+    plot(x./1000,h,'--','Linewidth',1)
+    ylim([-1 1])
+    ylabel('sea surface height (m)','Interpreter','latex','FontSize',12)
+    xlabel('x (km)','Interpreter','latex','FontSize',12)
+    xlim([-2500 2500])
+    title('Tsunami forcing','Interpreter','latex','FontSize',14)
 
     
 

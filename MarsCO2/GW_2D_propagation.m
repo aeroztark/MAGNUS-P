@@ -138,12 +138,12 @@ Z_KM = z_c(3:LastDomainZindex)./1000; % grid center arrays for plotting the comp
 X_KM = x_c(3:end-2)./1000;
 
 %% Plotting
-figure
-for i = 1:length(T_arr)
-contourf(X_KM,Z_KM,T_PERT(:,:,i),50,'Edgecolor','none');
-xlim([-20 60]);
-pause(0.1);
-end
+% figure
+% for i = 1:length(T_arr)
+% contourf(X_KM,Z_KM,T_PERT(:,:,i),50,'Edgecolor','none');
+% xlim([-20 60]);
+% pause(0.1);
+% end
 
 %% ---- Boundary Conditions ----
 function Q = bc(Q,t)
