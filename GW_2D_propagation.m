@@ -4,7 +4,7 @@ clear all
 close all
 
 % import appropriate simulation configuration file
-config_baseline;
+config_tsunami;
 
 %% Additional configuration from inputs of the config file
 
@@ -106,7 +106,7 @@ while t < Tmax
     n=n+1;
     
     % Update advective (main loop) timestep (adaptive)
-    dt = dCFL.*min(dx,dz)./(max(max(C))+max(max(max(abs(Q(:,:,2:3)./Q(:,:,1)))))); % Not Fool-Proof (!)
+    dt = dCFL.*min(dx,dz)./(max(max(C))+max(max(max(abs(Q(:,:,2:3)./Q(:,:,1)))))); % when Q(:,:,1) -> 0, dt becomes 0 & program breaks
     if ((isnan(dt)) || (dt==0))
         break;
     end
@@ -137,7 +137,17 @@ SCALING_FACTOR = sqrt(rho0(3:LastDomainZindex,3:end-2)./rho0(3,3:end-2)); % an 2
 Z_KM = z_c(3:LastDomainZindex)./1000; % grid center arrays for plotting the computational domain
 X_KM = x_c(3:end-2)./1000;
 
-%% Function definitions
+%% Optional plots
+figure % wave travel plot for x in the middle of domain
+contourf(T_arr,Z_KM,squeeze(W(:,length(X_KM)/2,:)).*SCALING_FACTOR(:,length(X_KM/2)),50,'Edgecolor','none')
+xlabel('time (s)')
+ylabel('z (km)')
+
+% BVf = BV(g(:,1),C(:,1),gamma(:,1));
+% Ri = RichardsonNumber(BVf,LastDomainZindex,U(:,length(X_KM)/2,500),500);
+% figure
+% plot(Ri,Z_KM,'LineWidth',2)
+% xlim([-1 1])
 
 %% ---- Boundary Conditions ----
 function Q = bc(Q,t)
@@ -160,12 +170,7 @@ function Q = bc(Q,t)
         Q(1:2,:,3) = -Q(3,:,3).*(rho0(1:2,:)./rho0(3,:)).^(0.5); 
     else % enforce forcing
         %w = forcing.amp.*cos(forcing.omega.*(t-forcing.t0)-forcing.kxx).*exp(-(t-forcing.t0)^2./(2*forcing.sigmat^2));
-        if t < 1800
-            w = exp(-((t-1800)^2)/(2*600^2)).*forcing.topo_w;
-        else
-            w = forcing.topo_w;
-        end
-        %w = Tsunami_forcing(t); 
+        w = Tsunami_forcing(t); 
         Q(1:2,:,3) = w.*rho0(1:2,:);
     end
     % bottom for E

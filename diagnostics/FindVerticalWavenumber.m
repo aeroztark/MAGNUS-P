@@ -8,6 +8,7 @@ function[Z_LOCATION, MAX_Lz] = FindVerticalWavenumber(profile, Z_KM, dz_KM)
     %%% dz: resolution along vertical axis (in km)
     %%% Z_KM: array of vertical coordinate values in km
     %%% OUT: Z_LOCATION -> where max Lz is found; MAX_Lz -> value of max Lz
+    %%% (km)
     
     [wave,period,scale,coi] = wavelet(profile,dz_KM);  % Terrence & Compo's function
     power = (abs(wave)).^2 ;        % compute wavelet power spectrum (units sigma^2 (variance) of dz)
@@ -17,8 +18,9 @@ function[Z_LOCATION, MAX_Lz] = FindVerticalWavenumber(profile, Z_KM, dz_KM)
     [max_col_val,max_col_ind] = max(M); %find the column with max power
     [max_row_val,max_row_ind] = max(power(:,max_col_ind)); 
     
-    Z_LOCATION = Z_KM(max_col_ind);
+    %Z_LOCATION = Z_KM(max_col_ind);
     MAX_Lz = period(max_row_ind);
+    Z_LOCATION = 0;
     
     % Generate plot
 %     figure

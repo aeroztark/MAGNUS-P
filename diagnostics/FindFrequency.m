@@ -20,6 +20,8 @@ function [] = FindFrequency(t,y,dt)
 [wave,period,scale,coi] = wavelet(y,dt);
 power = (abs(wave)).^2 ;        % compute wavelet power spectrum
 
+normalized_pwr = power./(max(max(power)));
+
 % Significance levels: (if computing)
 % [signif,fft_theor] = wave_signif(y,dt,scale);
 % sig95 = (signif')*(ones(1,length(y)));  % expand signif --> (J+1)x(N) array
@@ -27,8 +29,9 @@ power = (abs(wave)).^2 ;        % compute wavelet power spectrum
 
 %Plotting
 
-figure
-contourf(t./60,1000./period,power,50,'EdgeColor','none');  %1000/period to plot freq on y axis in mHz
+%figure
+contourf(t./60,1000./period,normalized_pwr,50,'EdgeColor','none');  % plotting normalized power
+%contourf(t./60,1000./period,power,50,'EdgeColor','none');  %1000/period to plot freq on y axis in mHz
 colorbar
 ylabel('frequency (mHz)')
 xlabel('time (min)')

@@ -3,7 +3,7 @@
 %% ---- Time settings ----
 Tmin  = 0;    % Initial time
 Tmax  = 8000; % Final time in seconds
-skipT = 30;  % Number of seconds to skip storing results
+skipT = 10;  % Number of seconds to skip storing results
 % computation happens after every dt but only limited data is stored
 n = 0;       % First Step n = 0 (n counts the current stored frame)
 t = Tmin;    % First time t = Tmin
@@ -11,16 +11,16 @@ nframe = 1;  % First frame = 1 (nframe is the total no of stored frames)
 T_arr(nframe) = 0; % T_arr is the time array of stored frames
 
 %% ---- Viscous phenomenon flags ----
-IsTopSpongeLayer = 1; % flag to include a 50 km sponge layer on top
-IsViscosity = 1;% flag to solve for molecular viscosity
+IsTopSpongeLayer = 1; % flag to include a sponge layer on top (20 km gives good results)
+IsViscosity = 0;% flag to solve for molecular viscosity
 IsConduction = 0; % flag to solve for thermal conduction  
 IsDiffusionImplicit = 0;
 %% ---- Domain settings ----
 % note on indexing: X(row,col) --> X(z_ind, x_ind)
-Xmin = -60000;
-Xmax = 60000;
+Xmin = -20000;
+Xmax = 20000;
 Zmin = 0;
-Zmax = 15000;
+Zmax = 160000;
 dx = 500; % horizontal resolution
 dz = 500; % vertical resolution
 SpongeHeight = 20000; % sponge layer thickness in meters
@@ -47,7 +47,7 @@ difCFL = 0.2; % CFL for diffusion problem
 global g R P0 rho0 gamma C; 
 
 % If using Earth isothermal model
- [T0,rho0,P0,R,gamma,kinvisc,thermdiffus,H,C] = Earth_isothermal(Z);
+[T0,rho0,P0,R,gamma,kinvisc,thermdiffus,H,C] = Earth_isothermal(Z);
  
 % If using Earth MSIS model
 %[~,rho0,P0,R,gamma,kinvisc,H,C,] = Earth_MSIS(Z,10,180,2020,1,0);
@@ -58,7 +58,7 @@ global g R P0 rho0 gamma C;
 
 global wind
 % Gaussian wind shear
-u_max = 0;    % wind amplitude (m/s) 
+u_max = 100;    % wind amplitude (m/s) 
 u_zloc = 100000;    % z location of wind peak (m)
 u_sig = 10000;    % stdev of wind profile (m)
 wind = u_max.*exp(-(Z-u_zloc).^2./(2*u_sig^2));    % wind profile, also a matrix of size X=Z
@@ -70,20 +70,11 @@ wind = u_max.*exp(-(Z-u_zloc).^2./(2*u_sig^2));    % wind profile, also a matrix
 %% ---- Wave forcing ----
 % A lower boundary Source is simulated as Gaussian w perturbation
 global forcing
- forcing.no = false;     %if true -> no forcing is applied
-% forcing.amp = 0.001;      % amplitude (m/s)
-% forcing.omega = 0.007;  % centered frequency
-% kx = 2*pi / (Xmax-Xmin);    % One horizontal wavelength per domain is set (lambda_x = x domain length)
-% forcing.kxx = x_c.*kx;  % computing kx*x
-% forcing.t0 = 1200;      % time at forcing maxima (s)
-% forcing.sigmat=600;     % forcing half width time (s)
-H = 0.5; % km
-L = 7; %km 
-hq = -H.*exp(-((x_c./1000).^2)./(L^2));
+forcing.no = false;     %if true -> no forcing is applied
+forcing.amp = 0.001;      % amplitude (m/s)
+forcing.omega = 0.007;  % centered frequency
+kx = 2*pi / (Xmax-Xmin);    % One horizontal wavelength per domain is set (lambda_x = x domain length)
+forcing.kxx = x_c.*kx;  % computing kx*x
+forcing.t0 = 1200;      % time at forcing maxima (s)
+forcing.sigmat=600;     % forcing half width time (s)
 
-% sample topography at model x scale
-%hq = interp1(x,h,x_c./1000,'spline');
-% Forcing from the obtained topography
-dh_dx = diff(hq)./(dx/1000); % gradient
-dh_dx = [dh_dx(1), dh_dx]; % append the same at position 1 to make the same length vector
-forcing.topo_w = 10.*dh_dx;  % surface wind x topography horizontal gradient

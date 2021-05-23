@@ -12,8 +12,8 @@ T_arr(nframe) = 0; % T_arr is the time array of stored frames
 
 %% ---- Viscous phenomenon flags ----
 IsTopSpongeLayer = 1; % flag to include a sponge layer on top
-IsViscosity = 1;% flag to solve for molecular viscosity
-IsConduction = 1; % flag to solve for thermal conduction  
+IsViscosity = 0;% flag to solve for molecular viscosity
+IsConduction = 0; % flag to solve for thermal conduction  
 IsDiffusionImplicit = 0;
 %% ---- Domain settings ----
 % note on indexing: X(row,col) --> X(z_ind, x_ind)
