@@ -2,8 +2,8 @@
 
 %% ---- Time settings ----
 Tmin  = 0;    % Initial time
-Tmax  = 8000; % Final time in seconds
-skipT = 10;  % Number of seconds to skip storing results
+Tmax  = 5000; % Final time in seconds
+skipT = 30;  % Number of seconds to skip storing results
 % computation happens after every dt but only limited data is stored
 n = 0;       % First Step n = 0 (n counts the current stored frame)
 t = Tmin;    % First time t = Tmin
@@ -58,7 +58,7 @@ global g R P0 rho0 gamma C;
 
 global wind
 % Gaussian wind shear
-u_max = 100;    % wind amplitude (m/s) 
+u_max = 0;    % wind amplitude (m/s) 
 u_zloc = 100000;    % z location of wind peak (m)
 u_sig = 10000;    % stdev of wind profile (m)
 wind = u_max.*exp(-(Z-u_zloc).^2./(2*u_sig^2));    % wind profile, also a matrix of size X=Z
@@ -70,11 +70,23 @@ wind = u_max.*exp(-(Z-u_zloc).^2./(2*u_sig^2));    % wind profile, also a matrix
 %% ---- Wave forcing ----
 % A lower boundary Source is simulated as Gaussian w perturbation
 global forcing
-forcing.no = false;     %if true -> no forcing is applied
-forcing.amp = 0.001;      % amplitude (m/s)
-forcing.omega = 0.007;  % centered frequency
-kx = 2*pi / (Xmax-Xmin);    % One horizontal wavelength per domain is set (lambda_x = x domain length)
-forcing.kxx = x_c.*kx;  % computing kx*x
-forcing.t0 = 1200;      % time at forcing maxima (s)
-forcing.sigmat=600;     % forcing half width time (s)
+forcing.thermal = true;     %if thermal forcing is applied
+forcing.verticalvelocity = false;    
 
+if forcing.thermal
+    forcing.amp = 100;      % amplitude (K/s), typically of form: A x Cp
+    forcing.x0 = 0;  %  forcing center x location (m)
+    forcing.sigmax = 500;     % forcing half width x (m)
+    forcing.z0 = 20000; %  forcing center z location (m)
+    forcing.sigmaz = 1000;     % forcing half width z (m)
+    forcing.t0 = 1200;      % time at forcing maxima (s)
+    forcing.sigmat = 600;     % forcing half width time (s)
+else
+    % parameters for vertical velocity type forcing
+    forcing.amp = 0.001;      % amplitude (m/s)
+    forcing.omega = 0.007;  % centered frequency
+    kx = 2*pi / (Xmax-Xmin);    % One horizontal wavelength per domain is set (lambda_x = x domain length)
+    forcing.kxx = x_c.*kx;  % computing kx*x
+    forcing.t0 = 1200;      % time at forcing maxima (s)
+    forcing.sigmat=600;     % forcing half width time (s)
+end

@@ -4,7 +4,7 @@ clear all
 close all
 
 % import appropriate simulation configuration file
-config_tsunami;
+config_baseline;
 
 %% Additional configuration from inputs of the config file
 
@@ -75,11 +75,11 @@ while t < Tmax
     
     % z-split
     G=Gflux(Q); % compute flux G
-    S=Source(0.5*(Q(jD,iD,:)+Q(jD+1,iD,:)),g(jD,iD)); % compute source
+    S=Source(0.5*(Q(jD,iD,:)+Q(jD+1,iD,:)),g(jD,iD),X,Z,t); % compute source
     % half step in z
     Qs(jD,iD,:)=0.5*(Q(jD,iD,:)+Q(jD+1,iD,:))-(dt/(2*dz))*(G(jD+1,iD,:)-G(jD,iD,:))+(dt/2)*S(:,:,:);
     G=Gflux(Qs);    % update flux
-    S=Source(Qs,g); % update source
+    S=Source(Qs,g,X,Z,t); % update source
     % full step in z
     Q(jD,iD,:)=Q(jD,iD,:)-(dt/dz)*(G(jD,iD,:)-G(jD-1,iD,:))+dt*0.5*(S(jD,iD,:)+S(jD-1,iD,:));
     % apply BCs
@@ -166,11 +166,11 @@ function Q = bc(Q,t)
     Q(1:2,:,2) = rho0(1:2,:).*wind(1:2,:)+(Q(3,:,2)-rho0(3,:).*wind(3,:)).*(rho0(1:2,:)./rho0(3,:)).^(0.5); %rho*u
     
     % Adding bottom forcing for rho*w
-    if forcing.no   % i.e. if no forcing, use reflective BC for rho*w at domain bottom
+    if forcing.thermal   % i.e. if no vertical velocity forcing, use reflective BC for rho*w at domain bottom
         Q(1:2,:,3) = -Q(3,:,3).*(rho0(1:2,:)./rho0(3,:)).^(0.5); 
-    else % enforce forcing
-        %w = forcing.amp.*cos(forcing.omega.*(t-forcing.t0)-forcing.kxx).*exp(-(t-forcing.t0)^2./(2*forcing.sigmat^2));
-        w = Tsunami_forcing(t); 
+    else % enforce vertical velocity forcing
+        w = forcing.amp.*cos(forcing.omega.*(t-forcing.t0)-forcing.kxx).*exp(-(t-forcing.t0)^2./(2*forcing.sigmat^2));
+        %w = Tsunami_forcing(t); 
         Q(1:2,:,3) = w.*rho0(1:2,:);
     end
     % bottom for E
@@ -226,11 +226,17 @@ function G = Gflux(Q)
 end
 
 %% ---- Source term ----
-function S = Source(Q,g)
+function S = Source(Q,g,X,Z,t)
+    global forcing
     S(:,:,1) = 0.*Q(:,:,1);
     S(:,:,2) = 0.*Q(:,:,1);
     S(:,:,3) = -Q(:,:,1).*g;
-    S(:,:,4) = -Q(:,:,3).*g;
+    if ~(forcing.thermal) %if thermal forcing is not applied 
+        S(:,:,4) = -Q(:,:,3).*g;   % no thermal forcing (just -rho*g*w)
+    else
+        [a,b,~] = size(Q);
+        S(:,:,4) = -Q(:,:,3).*g + Q(:,:,1).*forcing.amp.*exp(-((X(1:a,1:b)-forcing.x0).^2)./(2*forcing.sigmax^2)).*exp(-((Z(1:a,1:b)-forcing.z0).^2)./(2*forcing.sigmaz^2)).*exp(-((t-forcing.t0).^2)./(2*forcing.sigmat^2));
+    end
 end
 
 %% ---- Viscous terms ----
