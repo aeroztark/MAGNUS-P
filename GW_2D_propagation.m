@@ -166,7 +166,7 @@ function Q = bc(Q,t)
     Q(1:2,:,2) = rho0(1:2,:).*wind(1:2,:)+(Q(3,:,2)-rho0(3,:).*wind(3,:)).*(rho0(1:2,:)./rho0(3,:)).^(0.5); %rho*u
     
     % Adding bottom forcing for rho*w
-    if forcing.thermal   % i.e. if no vertical velocity forcing, use reflective BC for rho*w at domain bottom
+    if ~(forcing.verticalvelocity)   % i.e. if no vertical velocity forcing, use reflective BC for rho*w at domain bottom
         Q(1:2,:,3) = -Q(3,:,3).*(rho0(1:2,:)./rho0(3,:)).^(0.5); 
     else % enforce vertical velocity forcing
         w = forcing.amp.*cos(forcing.omega.*(t-forcing.t0)-forcing.kxx).*exp(-(t-forcing.t0)^2./(2*forcing.sigmat^2));
