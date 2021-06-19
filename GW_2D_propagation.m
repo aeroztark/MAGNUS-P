@@ -278,10 +278,12 @@ global wind
             if IsDiffusionImplicit == 1
                 % Using direct Implicit method:
                 % first create coefficient matrix
-                A = CreateImplicitMatrix(Q(:,:,2),jD,iD,kinvisc.*(dt_sub/(dx^2)));
-                % then use LU decomposition to solve the linear system
-                Q(jD,iD,2) = wind(jD,iD) + A \ u_diff(jD,iD);
-                Q(jD,iD,3) = A \ w_diff(jD,iD);
+%                 A = CreateImplicitMatrix(Q(:,:,2),jD,iD,kinvisc.*(dt_sub/(dx^2)));
+%                 % then use LU decomposition to solve the linear system
+%                 Q(jD,iD,2) = wind(jD,iD) + A \ u_diff(jD,iD);
+%                 Q(jD,iD,3) = A \ w_diff(jD,iD);
+                  Q(jD,iD,2) = wind(jD,iD) + DirectImplicitSolver(u_diff(jD,iD),kinvisc,dt_sub,dx,length(jD));
+                  Q(jD,iD,3) = DirectImplicitSolver(w_diff(jD,iD),kinvisc,dt_sub,dx,length(jD));
             else
                 % Using an explicit scheme: forward Euler in time and centrered difference in space
                 Q(jD,iD,2:3) = Q(jD,iD,1).*(Q(jD,iD,2:3)+kinvisc(jD,iD).*(dt_sub/dx^2).*(Q(jD,iD+1,2:3)-2.*Q(jD,iD,2:3)+Q(jD,iD-1,2:3))); % get updated rho*u and rho*w
@@ -300,10 +302,12 @@ global wind
              if IsDiffusionImplicit == 1
                 % Using direct Implicit method:
                 % first create coefficient matrix
-                A = CreateImplicitMatrix(Q(:,:,2),jD,iD,kinvisc.*(dt_sub/(dz^2)));
-                % then use LU decomposition to solve the linear system
-                Q(jD,iD,2) = wind(jD,iD) + A \ u_diff(jD,iD);
-                Q(jD,iD,3) = A \ w_diff(jD,iD);
+%                 A = CreateImplicitMatrix(Q(:,:,2),jD,iD,kinvisc.*(dt_sub/(dz^2)));
+%                 % then use LU decomposition to solve the linear system
+%                 Q(jD,iD,2) = wind(jD,iD) + A \ u_diff(jD,iD);
+%                 Q(jD,iD,3) = A \ w_diff(jD,iD);
+                  Q(jD,iD,2) = wind(jD,iD) + DirectImplicitSolver(u_diff(jD,iD),kinvisc,dt_sub,dz,length(jD));
+                  Q(jD,iD,3) = DirectImplicitSolver(w_diff(jD,iD),kinvisc,dt_sub,dz,length(jD));
              else
                  % Explicit method
                 Q(jD,iD,2:3) = Q(jD,iD,1).*(Q(jD,iD,2:3)+kinvisc(jD,iD).*(dt_sub/dz^2).*(Q(jD+1,iD,2:3)-2.*Q(jD,iD,2:3)+Q(jD-1,iD,2:3)));
@@ -406,5 +410,32 @@ A = spdiags(1+2.*F(:,1),0,zeros(nrows));
 % Set the first (+1th and -1th) diagonals as -F
 A = spdiags(-F(:,1),1,A);
 A = spdiags(-F(:,1),-1,A);
+end
+
+function[u_new] = DirectImplicitSolver(u_old,k,dt,dx,N)
+
+    % This function solves the 1D diffusion equation by Direct implicit method
+    % (Backward Euler)
+
+    % Inputs:
+        %u_old -> vertical profile of quantity at previous timestep
+        % k -> diffusion coefficient; dx -> integration spatial step; N -> no of
+        % z levels
+    % Output -> u_new -> integrated value of the quantity
+
+    C = k*dt/(dx^2);    % mesh Fourier number
+
+    % Define coefficient matrix A (use sparse formulation for efficiency)
+    %( main diagonal (0th diagonal) is 2C+1 and off diagonals (-1 and +1) are -C)    
+    pattern = [-C, 2*C+1, -C];
+    diags = repmat(pattern,[N,1]); % making diagonals
+    A = spdiags(diags,-1:1,N,N); % creating sparse matrix out of the diagonals
+
+    % Define B matrix
+    B = u_old; % z-profile
+
+    % Solve linear system using LU factorization 
+    u_new = A\B; % solve the system
+
 end
 
