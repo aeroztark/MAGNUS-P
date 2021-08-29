@@ -1,0 +1,13 @@
+MarsGRAM is much more complicated than VenusGRAM. 
+
+To install MarsGRAM, there is a batch file containing several instructions in Code directory. Several gfortran flags give error with the latest version of gfortran, so remove all flags from IdMarsGRAM.bat (e.g. IdMarsGRAM-original.bat is how it orginally was, before removing the flags).
+ 
+After modifying .bat file, run it from that directory
+
+D:\..\Code>>IdMarsGRAM.bat
+
+This will build the application file and copy into Executables directory. The operations done by the batch file are self-explanatory.
+
+To run MarsGRAM, input files (NAMELIST format) are provided form IOfiles dir. Edit the LSTFL and OUTFL folders as well as DATADIR and GCMDIR addresses - point these 2 to binFiles dir and terminate with backslash. 
+
+MarsGRAM is ready to use!

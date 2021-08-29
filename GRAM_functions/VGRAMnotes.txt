@@ -1,0 +1,17 @@
+VenusGRAM and MarsGRAM are available upon request from NASA.
+
+Zipped folder VG2005PC is for Windows, VG2005UN is for Unix systems. 
+
+1. Extract VG2005PC into a directory.
+2. Delete all existing executables. We need to build the executables from fortran code. 
+3. Install gfortran (e.g. from equation.com), and find its install folder (alternatively, just add the path to Environmental Variables)
+4. Build VenusGRAM model by running the following in command prompt:
+
+C\..\VG2005PC>> C:\..\gfortran.exe venusgrm_V05.F venssubs_V05.f SETUP_V05.F
+
+This will build an application (called a.exe by default; another name can be provided using -o flag) that is our executable.
+
+5. Test the build by running test inputs in INPUTREF.txt. First modify the INPUTREF.txt file by
+	a.  delete lines: TRAJFL    = 'TRAJDATA.txt' and profile   = 'null'. These are optional.
+	b. Provide DATADIR path where VG2005PC is (needs to access datafiles like VIRAMid.txt, VIRALow.txt etc.). Ensure that the address ends with a             backslash, e.g.   DATADIR   = 'D:\Documents\Venus-GRAMMar05\Venus-GRAMMar05\VG2005PC\'  
+6. Run test: Either from command line, run a.exe (preferred, since it gives all status information) or run the GUI. A successful test should have a normal exit and generate some new data files, including LIST.txt that should be identical to LISTREF.txt. 
