@@ -11,9 +11,9 @@ nframe = 1;  % First frame = 1 (nframe is the total no of stored frames)
 T_arr(nframe) = 0; % T_arr is the time array of stored frames
 
 %% ---- Viscous phenomenon flags ----
-IsTopSpongeLayer = 1; % flag to include a sponge layer on top (20 km gives good results)
-IsViscosity = 0;% flag to solve for molecular viscosity
-IsConduction = 0; % flag to solve for thermal conduction  
+IsTopSpongeLayer = 0; % flag to include a sponge layer on top (20 km gives good results)
+IsViscosity = 1;% flag to solve for molecular viscosity
+IsConduction = 1; % flag to solve for thermal conduction  
 IsDiffusionImplicit = 0;
 %% ---- Domain settings ----
 % note on indexing: X(row,col) --> X(z_ind, x_ind)
@@ -50,8 +50,8 @@ global g R P0 rho0 gamma C;
 [T0,rho0,P0,R,gamma,kinvisc,thermdiffus,H,C] = Earth_isothermal(Z);
  
 % If using Earth MSIS model
-%[~,rho0,P0,R,gamma,kinvisc,H,C,] = Earth_MSIS(Z,10,180,2020,1,0);
- 
+%[T0,rho0,P0,R,gamma,kinvisc,thermdiffus,H,C,~,~] = Earth_MSIS(Z,10,180,2020,1,0);
+
 %% ---- Background wind ----
 % only horizontal wind is specified -> time invariant. Vertical wind is zero.
 % will need recheck equations to subtract from rho*u and rho*w if this changes 
@@ -70,8 +70,8 @@ wind = u_max.*exp(-(Z-u_zloc).^2./(2*u_sig^2));    % wind profile, also a matrix
 %% ---- Wave forcing ----
 % A lower boundary Source is simulated as Gaussian w perturbation
 global forcing
-forcing.thermal = true;     %if thermal forcing is applied
-forcing.verticalvelocity = false;    
+forcing.thermal = false;     %if thermal forcing is applied
+forcing.verticalvelocity = true;    
 
 if forcing.thermal
     forcing.amp = 100;      % amplitude (K/s), typically of form: A x Cp
