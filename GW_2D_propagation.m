@@ -30,6 +30,14 @@ g = repmat(g,1,size(X,2)-1);
 % ---- initial timestep calculation
 dt = dCFL.*min(dx,dz)./max(max(C));   %limited by speed of sound
 
+% generate coefficient matrix for implicit diffusion
+if IsDiffusionImplicit
+    A_visc = VarCoeffImplicitCNMatrix(kinvisc(:,1),dz,I,J);
+    A_therm = VarCoeffImplicitCNMatrix(thermdiffus(:,1),dz,I,J);
+else
+    A_visc = 0; % need to pass some value to the function later
+    A_therm = 0;
+end
 %% Simulation setup
 
 % Initializing arrays:
@@ -88,17 +96,17 @@ while t < Tmax
     % Solve for diffusion terms
     % Molecular Diffusion
     if IsViscosity == 1
-        Q = MolecularViscosity(kinvisc,difCFL,dt,dx,dz,jD,iD,Q,t,IsDiffusionImplicit);
+        Q = MolecularViscosity(kinvisc,difCFL,dt,dx,dz,jD,iD,Q,t,IsDiffusionImplicit,A_visc,I,J);
     end
     
     % Thermal conductivity
     if IsConduction == 1
-        Q = ThermalConduction(thermdiffus,difCFL,T0,dt,dx,dz,x_c,z_c,jD,iD,Q,t,IsDiffusionImplicit);
+        Q = ThermalConduction(thermdiffus,difCFL,T0,dt,dx,dz,x_c,z_c,jD,iD,Q,t,IsDiffusionImplicit,A_therm,I,J);
     end
     
     % Sponge layer implementation
     if IsTopSpongeLayer == 1
-        Q = MolecularViscosity(kinvisc,difCFL,dt,dx,dz,jD,iD,Q,t,IsDiffusionImplicit);        
+        Q = MolecularViscosity(kinvisc,difCFL,dt,dx,dz,jD,iD,Q,t,IsDiffusionImplicit,A_visc,I,J);        
     end
     
     % ---- Update time ----
@@ -106,7 +114,9 @@ while t < Tmax
     n=n+1;
     
     % Update advective (main loop) timestep (adaptive)
-    dt = dCFL.*min(dx,dz)./(max(max(C))+max(max(max(abs(Q(:,:,2:3)./Q(:,:,1)))))); % when Q(:,:,1) -> 0, dt becomes 0 & program breaks
+    dt = dCFL.*min(dx,dz)./(max(max(C))+max(max(max(abs(Q(:,:,2:3)./Q(:,:,1)))))); % when Q(:,:,1) -> 0, dt becomes 0 & program breaks.
+    %This happens with ideal exponential density (hence, limit them to ~300
+    %km). Should not be an issue with realistic density.
     if ((isnan(dt)) || (dt==0))
         break;
     end
@@ -241,7 +251,7 @@ end
 
 %% ---- Viscous terms ----
 
-function[Q] = MolecularViscosity(kinvisc,difCFL,dt,dx,dz,jD,iD,Q,t,IsDiffusionImplicit)
+function[Q] = MolecularViscosity(kinvisc,difCFL,dt,dx,dz,jD,iD,Q,t,IsDiffusionImplicit,A_visc,I,J)
 global wind
     % This function solves the diffusion equation for molecular viscosity
     % inputs: kinvic -> array of kinematic viscosity values
@@ -253,75 +263,59 @@ global wind
              % t      -> current simulation epoch time
      % outputs: Q-> updated Q after solving for viscosity and updating u and E   
      
-    % First calculating the number of sub-steps for integration of diffusion equation 
-    max_visc = max(max(kinvisc));  %max value of viscosity in the domain
     
-    if IsDiffusionImplicit == 1
-        N_substeps = ceil(dt/10); % run 10 substeps for every advection timestep
+    if IsDiffusionImplicit == 1 % use Implicit method
+        % solve for u
+        u_diff = Q(:,:,2)./Q(:,:,1) - wind; % perturbation in u
+        u_diff = SolveImplicitDiffusion(u_diff,A_visc,I,J);
+        
+        % repeat for w
+        w_diff = Q(:,:,3)./Q(:,:,1);
+        w_diff = SolveImplicitDiffusion(w_diff,A_visc,I,J);
+        
+        % form Q
+        Q(:,:,2) = (u_diff + wind).*Q(:,:,1);
+        Q(:,:,3) = w_diff.*Q(:,:,1);
+        
+        % apply BCs to new Q
+        Q = bc(Q,t);
+        
     else
+        % First calculating the number of sub-steps for integration of diffusion equation 
+        max_visc = max(max(kinvisc));  %max value of viscosity in the domain
         N_substeps = ceil(dt*max_visc/(difCFL*min(dx,dz)^2));   %no of substeps required to solve diffusion equation...
         ... based on Von Neumann Number (dt = N_substeps x dt_sub)
-    end
 
-    % Main Substepping Loop
-    for m = 1:N_substeps
-        
-        % Substep Timestep
-        dt_sub = dt/N_substeps;
+        % Main Substepping Loop
+        for m = 1:N_substeps
+     
+            % Substep Timestep
+            dt_sub = dt/N_substeps;
         
             % x-split for diffusion equation ----
             % compute intermediate values for ease:
             Q(:,:,4) = Q(:,:,4)-0.5*(Q(:,:,2).^2+Q(:,:,3).^2)./Q(:,:,1); % compute P/(gamma-1) 
             Q(:,:,2:3) = Q(:,:,2:3)./Q(:,:,1);  % compute velocity
-            u_diff = Q(:,:,2) - wind;
-            w_diff = Q(:,:,3);
-            if IsDiffusionImplicit == 1
-                % Using direct Implicit method:
-                % first create coefficient matrix
-%                 A = CreateImplicitMatrix(Q(:,:,2),jD,iD,kinvisc.*(dt_sub/(dx^2)));
-%                 % then use LU decomposition to solve the linear system
-%                 Q(jD,iD,2) = wind(jD,iD) + A \ u_diff(jD,iD);
-%                 Q(jD,iD,3) = A \ w_diff(jD,iD);
-                  Q(jD,iD,2) = wind(jD,iD) + DirectImplicitSolver(u_diff(jD,iD),kinvisc,dt_sub,dx,length(jD));
-                  Q(jD,iD,3) = DirectImplicitSolver(w_diff(jD,iD),kinvisc,dt_sub,dx,length(jD));
-            else
-                % Using an explicit scheme: forward Euler in time and centrered difference in space
-                Q(jD,iD,2:3) = Q(jD,iD,1).*(Q(jD,iD,2:3)+kinvisc(jD,iD).*(dt_sub/dx^2).*(Q(jD,iD+1,2:3)-2.*Q(jD,iD,2:3)+Q(jD,iD-1,2:3))); % get updated rho*u and rho*w
-            end
-            
-             Q(jD,iD,4) = Q(jD,iD,4)+0.5*(Q(jD,iD,2).^2+Q(jD,iD,3).^2)./Q(jD,iD,1); % get updated E
-            
+            % Using an explicit scheme: forward Euler in time and centrered difference in space
+            Q(jD,iD,2:3) = Q(jD,iD,1).*(Q(jD,iD,2:3)+kinvisc(jD,iD).*(dt_sub/dx^2).*(Q(jD,iD+1,2:3)-2.*Q(jD,iD,2:3)+Q(jD,iD-1,2:3))); % get updated rho*u and rho*w
+            Q(jD,iD,4) = Q(jD,iD,4)+0.5*(Q(jD,iD,2).^2+Q(jD,iD,3).^2)./Q(jD,iD,1); % get updated E
             % apply BCs
             Q = bc(Q,t);
 
             % z-split for diffusion equation ----
             Q(:,:,4) = Q(:,:,4)-0.5*(Q(:,:,2).^2+Q(:,:,3).^2)./Q(:,:,1);
             Q(:,:,2:3)=Q(:,:,2:3)./Q(:,:,1);
-            u_diff = Q(:,:,2) - wind;
-            w_diff = Q(:,:,3);
-             if IsDiffusionImplicit == 1
-                % Using direct Implicit method:
-                % first create coefficient matrix
-%                 A = CreateImplicitMatrix(Q(:,:,2),jD,iD,kinvisc.*(dt_sub/(dz^2)));
-%                 % then use LU decomposition to solve the linear system
-%                 Q(jD,iD,2) = wind(jD,iD) + A \ u_diff(jD,iD);
-%                 Q(jD,iD,3) = A \ w_diff(jD,iD);
-                  Q(jD,iD,2) = wind(jD,iD) + DirectImplicitSolver(u_diff(jD,iD),kinvisc,dt_sub,dz,length(jD));
-                  Q(jD,iD,3) = DirectImplicitSolver(w_diff(jD,iD),kinvisc,dt_sub,dz,length(jD));
-             else
-                 % Explicit method
-                Q(jD,iD,2:3) = Q(jD,iD,1).*(Q(jD,iD,2:3)+kinvisc(jD,iD).*(dt_sub/dz^2).*(Q(jD+1,iD,2:3)-2.*Q(jD,iD,2:3)+Q(jD-1,iD,2:3)));
-             end
-             
-             Q(jD,iD,4) = Q(jD,iD,4)+0.5*(Q(jD,iD,2).^2+Q(jD,iD,3).^2)./Q(jD,iD,1);
-         
-        % apply BCs
-        Q = bc(Q,t);
+            % Explicit method
+            Q(jD,iD,2:3) = Q(jD,iD,1).*(Q(jD,iD,2:3)+kinvisc(jD,iD).*(dt_sub/dz^2).*(Q(jD+1,iD,2:3)-2.*Q(jD,iD,2:3)+Q(jD-1,iD,2:3)));
+            Q(jD,iD,4) = Q(jD,iD,4)+0.5*(Q(jD,iD,2).^2+Q(jD,iD,3).^2)./Q(jD,iD,1);
+            % apply BCs
+            Q = bc(Q,t);
+         end
     
     end
 end
 
-function[Q] = ThermalConduction(thermdiffus,difCFL,T_ref,dt,dx,dz,x_c,z_c,jD,iD,Q,t,IsDiffusionImplicit)
+function[Q] = ThermalConduction(thermdiffus,difCFL,T_ref,dt,dx,dz,x_c,z_c,jD,iD,Q,t,IsDiffusionImplicit,A_therm,I,J)
 
 global R gamma P0
     % This function solves the diffusion equation for thermal conduction
@@ -335,38 +329,40 @@ global R gamma P0
              % t      -> current simulation epoch time
      % outputs: Q-> updated Q after solving for viscosity and updating u and E   
      
-    % First calculating the number of sub-steps for integration of diffusion equation 
-    max_diffusivity = max(max(thermdiffus));  %max value of viscosity in the domain
+
     
     if IsDiffusionImplicit == 1
-        N_substeps = ceil(dt/10); % run 10 substeps for every advection timestep
+        Q(:,:,4) = Q(:,:,4)-0.5*(Q(:,:,2).^2+Q(:,:,3).^2)./Q(:,:,1); % compute P/(gamma-1) 
+        T = (Q(:,:,4).*(gamma-1))./(R.*Q(:,:,1));  % compute T
+        T_diff = T - T_ref; % diffusion will be applied only to deviation from reference state
+        T_diff = SolveImplicitDiffusion(T_diff,A_therm,I,J);
+       
+        % form Q
+        P = Q(:,:,1).*R.*(T_diff + T_ref); % get updated P
+        Q(jD,iD,4) = P(jD,iD)./(gamma(jD,iD)-1) + 0.5*(Q(jD,iD,2).^2+Q(jD,iD,3).^2)./Q(jD,iD,1); % get updated E
+        
+        % apply BCs to new Q
+        Q = bc(Q,t);
     else
+        % First calculating the number of sub-steps for integration of diffusion equation 
+        max_diffusivity = max(max(thermdiffus));  %max value of viscosity in the domain
         N_substeps = ceil(dt*max_diffusivity/(difCFL*min(dx,dz)^2));   %no of substeps required to solve diffusion equation...
         ... based on Von Neumann Number (dt = N_substeps x dt_sub)
-    end
 
     % Main Substepping Loop
-    for m = 1:N_substeps
+        for m = 1:N_substeps
         
         % Substep Timestep
-        dt_sub = dt/N_substeps;
+            dt_sub = dt/N_substeps;
         
             % x-split for diffusion equation ----
             % compute intermediate values for ease:
             Q(:,:,4) = Q(:,:,4)-0.5*(Q(:,:,2).^2+Q(:,:,3).^2)./Q(:,:,1); % compute P/(gamma-1) 
             T = (Q(:,:,4).*(gamma-1))./(R.*Q(:,:,1));  % compute T
             T_diff = T - T_ref; % diffusion will be applied only to deviation from reference state
-            
-            if IsDiffusionImplicit == 1
-                % Using direct Implicit method:
-                A = CreateImplicitMatrix(T_diff,jD,iD,thermdiffus.*(dt_sub/(dx^2)));
-                % then use LU decomposition to solve the linear system
-                T_diff(jD,iD) = A \ T_diff(jD,iD);
-            else
-                % Using an explicit scheme: forward Euler in time and centrered difference in space
-                T_diff(jD,iD) = T_diff(jD,iD) + thermdiffus(jD,iD).*(dt_sub/dx^2).*(T_diff(jD,iD+1)-2.*T_diff(jD,iD)+T_diff(jD,iD-1)); % get updated T
-            end
-            
+            % Using an explicit scheme: forward Euler in time and centrered difference in space
+            T_diff(jD,iD) = T_diff(jD,iD) + thermdiffus(jD,iD).*(dt_sub/dx^2).*(T_diff(jD,iD+1)-2.*T_diff(jD,iD)+T_diff(jD,iD-1)); % get updated T
+                       
             P = Q(:,:,1).*R.*(T_diff + T_ref); % get updated P
             Q(jD,iD,4) = P(jD,iD)./(gamma(jD,iD)-1) + 0.5.*(Q(jD,iD,2).^2+Q(jD,iD,3).^2)./Q(jD,iD,1); % get updated E
 
@@ -377,16 +373,9 @@ global R gamma P0
             Q(:,:,4) = Q(:,:,4)-0.5*(Q(:,:,2).^2+Q(:,:,3).^2)./Q(:,:,1); % compute P/(gamma-1) 
             T = (Q(:,:,4).*(gamma-1))./(R.*Q(:,:,1));  % compute T
             T_diff = T - T_ref; % diffusion will be applied only to deviation from reference state
+            % Using an explicit scheme: forward Euler in time and centrered difference in space
+            T_diff(jD,iD) = T_diff(jD,iD) + thermdiffus(jD,iD).*(dt_sub/dz^2).*(T_diff(jD+1,iD)-2.*T_diff(jD,iD)+T_diff(jD-1,iD)); % get updated T
             
-            if IsDiffusionImplicit == 1
-                % Using direct Implicit method:
-                A = CreateImplicitMatrix(T_diff,jD,iD,thermdiffus.*(dt_sub/(dz^2)));
-                % then use LU decomposition to solve the linear system
-                T_diff(jD,iD) = A \ T_diff(jD,iD);
-            else
-                % Using an explicit scheme: forward Euler in time and centrered difference in space
-                T_diff(jD,iD) = T_diff(jD,iD) + thermdiffus(jD,iD).*(dt_sub/dz^2).*(T_diff(jD+1,iD)-2.*T_diff(jD,iD)+T_diff(jD-1,iD)); % get updated T
-            end
             P = Q(:,:,1).*R.*(T_diff + T_ref); % get updated P
             Q(jD,iD,4) = P(jD,iD)./(gamma(jD,iD)-1) + 0.5*(Q(jD,iD,2).^2+Q(jD,iD,3).^2)./Q(jD,iD,1); % get updated E
         end
@@ -395,47 +384,17 @@ global R gamma P0
         Q = bc(Q,t);
 
     end
-
-
-function[A] = CreateImplicitMatrix(Q,jD,iD,F)
-% function to create the coefficient matrix for direct implicit solution of
-% 1D diffusion equation (Dimensionally split diffusion equation will be solved using LU factorization)
-% Inputs: Q -> Vector of quantities
-%         jD,iD -> domain indices
-%         F - mesh Fourier number = K*dt/(ds^2)
-
-[nrows,ncols] = size(Q(jD,iD));
-% Set the main (zero-th) diagonal as 2F+1
-A = spdiags(1+2.*F(:,1),0,zeros(nrows));
-% Set the first (+1th and -1th) diagonals as -F
-A = spdiags(-F(:,1),1,A);
-A = spdiags(-F(:,1),-1,A);
 end
 
-function[u_new] = DirectImplicitSolver(u_old,k,dt,dx,N)
+function[u_new] = SolveImplicitDiffusion(u_old,A,I,J)
+% This equation solves the matrix equation for solving the 2D diffusion equation discretized using Crank-Nicholson
 
-    % This function solves the 1D diffusion equation by Direct implicit method
-    % (Backward Euler)
-
-    % Inputs:
-        %u_old -> vertical profile of quantity at previous timestep
-        % k -> diffusion coefficient; dx -> integration spatial step; N -> no of
-        % z levels
-    % Output -> u_new -> integrated value of the quantity
-
-    C = k*dt/(dx^2);    % mesh Fourier number
-
-    % Define coefficient matrix A (use sparse formulation for efficiency)
-    %( main diagonal (0th diagonal) is 2C+1 and off diagonals (-1 and +1) are -C)    
-    pattern = [-C, 2*C+1, -C];
-    diags = repmat(pattern,[N,1]); % making diagonals
-    A = spdiags(diags,-1:1,N,N); % creating sparse matrix out of the diagonals
-
-    % Define B matrix
-    B = u_old; % z-profile
-
-    % Solve linear system using LU factorization 
-    u_new = A\B; % solve the system
-
+% INPUTS:
+% u_old -> previous timestep solution matrix (JxI)
+% A -> coefficient matrix (see VarCoeffImplicitCNMatrix.m or ConstCoeffImplicitCNMatrix.m)
+% I -> no. of x values
+% J -> no. of z values
+     b = reshape(u_old(:,:)',[],1); %RHS of the matrix equation
+     u_new = A\b; % Direct method using LU factorization
+     u_new = reshape(u_new,[I,J])'; % reshape the solution as matrix
 end
-
