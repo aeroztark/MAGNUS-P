@@ -1,11 +1,10 @@
 
 clc
 clear all
-close all
+%close all
 
 % import appropriate simulation configuration file
 config_baseline;
-
 %% Additional configuration from inputs of the config file
 
 % note on indexing: X(row,col) --> X(z_ind, x_ind)
@@ -179,8 +178,8 @@ function Q = bc(Q,t)
     if ~(forcing.verticalvelocity)   % i.e. if no vertical velocity forcing, use reflective BC for rho*w at domain bottom
         Q(1:2,:,3) = -Q(3,:,3).*(rho0(1:2,:)./rho0(3,:)).^(0.5); 
     else % enforce vertical velocity forcing
-        w = forcing.amp.*cos(forcing.omega.*(t-forcing.t0)-forcing.kxx).*exp(-(t-forcing.t0)^2./(2*forcing.sigmat^2));
-        %w = Tsunami_forcing(t); 
+        %w = forcing.amp.*cos(forcing.omega.*(t-forcing.t0)-forcing.kxx).*exp(-(t-forcing.t0)^2./(2*forcing.sigmat^2));
+        w = GaussianHillForcing(t);
         Q(1:2,:,3) = w.*rho0(1:2,:);
     end
     % bottom for E
@@ -199,7 +198,10 @@ function Q = bc(Q,t)
     Q(:,2,:) = Q(:,end-2,:);
     Q(:,1,:) = Q(:,end-3,:);
     Q(:,end,:)  = Q(:,4,:);
-    Q(:,end-1,:)= Q(:,3,:); 
+    Q(:,end-1,:)= Q(:,3,:);
+
+%     Q(:,end-4:end,:) = Q(:,end-5:end-1,:); % outflow condition
+%     Q(:,1:5,:) = Q(:,2:6,:); % outflow condition
 
 end
 

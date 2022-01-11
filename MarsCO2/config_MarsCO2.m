@@ -1,8 +1,7 @@
-% Config file for Tsunami case
-
+% Config file for Mars cloud case
 %% ---- Time settings ----
 Tmin  = 0;    % Initial time
-Tmax  = 14400; % Final time in seconds (3 hrs)
+Tmax  = 18000; % Final time in seconds (3 hrs)
 skipT = 180;  % Number of seconds to skip storing results (1 min)
 % computation happens after every dt but only limited data is stored
 n = 0;       % First Step n = 0 (n counts the current stored frame)
@@ -18,10 +17,10 @@ IsDiffusionImplicit = 0;
 %% ---- Domain settings ----
 % note on indexing: X(row,col) --> X(z_ind, x_ind)
 Xmin = 0;
-Xmax = 350000;
+Xmax = 550000;
 Zmin = 0;
 Zmax = 15000;
-dx = 250; % horizontal resolution
+dx = 500; % horizontal resolution
 dz = 250; % vertical resolution
 SpongeHeight = 20000; % sponge layer thickness in meters
 
@@ -50,9 +49,10 @@ global g R P0 rho0 gamma C;
 % [T0,rho0,P0,R,gamma,kinvisc,thermdiffus,H,C] = Earth_isothermal(Z);
  
 % Using Mars model from MCD
- [~,rho0,P0,R,gamma,kinvisc,thermdiffus,H,C,U] = Mars_MOLApass260(Z);
- 
- T0 = 1.02.*(90 + ((104.5-Z./1000)./1.853)); % 2% subsaturated
+  [~,rho0,P0,R,gamma,kinvisc,thermdiffus,H,C,U0] = Mars_MOLApass260(Z);
+%  [~,rho0,P0,R,gamma,kinvisc,thermdiffus,H,C,U0] = Mars_MOLApass390(Z);
+  
+ T0 = 1.01.*(90 + ((104.5-Z./1000)./1.853)); % 2% subsaturated
  
 %% ---- Background wind ----
 % only horizontal wind is specified -> time invariant. Vertical wind is zero.
@@ -66,8 +66,8 @@ global wind
 % wind = u_max.*exp(-(Z-u_zloc).^2./(2*u_sig^2));    % wind profile, also a matrix of size X=Z
 
 % linear wind shear
-%wind = U;
-wind = 10.*ones(size(U));
+%wind = -U0;
+wind = 10.*ones(size(U0));
 
 %% ---- Wave forcing ----
 % A tsunami forcing function is called in the main file
@@ -79,9 +79,19 @@ forcing.no = false;     %if true -> no forcing is applied
 % L = 7; %km 
 % hq = -H.*exp(-((x_c./1000).^2)./(L^2));
 
-load('Smooth_pass260_topo.mat') % load smoothened topography
+%load('Smooth_pass260_topo.mat'); % load smoothened topography
 % sample topography at model x scale
-hq = interp1(x,h,x_c./1000,'pchip');
+%hq = interp1(x,h,x_c./1000,'pchip'); % for 260
+
+% load('Smooth_pass390_topo.mat');
+% h1 = interp1(x,h,0:3:200,'pchip'); % for 390 (2-stage snoothening to remove hiccupy gradient)
+% hq = interp1(0:3:200,h1,x_c./1000,'pchip'); % for 390
+%hq = interp1(x,h,x_c./1000,'pchip');
+
+load('topo207.mat'); % load smoothened topography
+% sample topography at model x scale
+hq = interp1(x,h,x_c./1000,'pchip'); % for 260
+
 % Forcing from the obtained topography
 dh_dx = diff(hq)./(dx/1000); % gradient
 dh_dx = [dh_dx(1), dh_dx]; % append the same at position 1 to make the same length vector
